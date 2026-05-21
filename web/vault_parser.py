@@ -879,6 +879,7 @@ def search_knowledge(query, limit=20):
             'name_en': name_en,
             'score': score,
             'status': topic.get('status', 'unknown'),
+            'tested': topic.get('tested', False),
             'difficulty': topic.get('difficulty', 3),
             'importance': topic.get('importance', 3),
             'description': description.strip()[:120],

@@ -1080,10 +1080,11 @@ function renderSearchResult(r) {
     `<span class="search-tag">${t}</span>`
   ).join('');
 
+  const dotColor = r.status === 'mastered' ? '#3fb950'
+    : r.status === 'learning' ? '#d29922'
+    : (r.tested ? '#f85149' : '#8b949e');
   const statusDot = r.status
-    ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${
-        r.status === 'mastered' ? '#3fb950' : r.status === 'learning' ? '#d29922' : '#8b949e'
-      };margin-right:4px"></span>`
+    ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px"></span>`
     : '';
 
   return `
