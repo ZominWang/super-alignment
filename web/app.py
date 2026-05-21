@@ -15,6 +15,7 @@ from vault_parser import (
     get_graph_data, get_progress,
     get_global_diagnostic_questions, submit_global_diagnostic,
     get_direction_quiz, submit_direction_quiz,
+    strip_quiz_answers, validate_quiz_answer,
     search_knowledge, build_cli_search_prompt
 )
 
@@ -143,7 +144,7 @@ def api_diagnostic():
         n = int(request.args.get('n_per_direction', 2))
         questions = get_global_diagnostic_questions(n_per_direction=n)
         return jsonify({
-            'questions': questions,
+            'questions': strip_quiz_answers(questions),
             'total': len(questions)
         })
     except Exception as e:
@@ -177,6 +178,7 @@ def api_direction_quiz(direction_id):
         quiz_data = get_direction_quiz(direction_id)
         if not quiz_data:
             return jsonify({'error': f'Direction {direction_id} not found'}), 404
+        quiz_data['questions'] = strip_quiz_answers(quiz_data.get('questions', []))
         return jsonify(quiz_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -199,6 +201,29 @@ def api_direction_quiz_submit(direction_id):
 
 
 # ============================================================
+# 答案验证 API（后端判分，防止前端伪造）
+# ============================================================
+
+@app.route('/api/answer-check', methods=['POST'])
+def api_answer_check():
+    """实时验证单道题的答案，用于题目作答后的即时反馈"""
+    try:
+        data = request.get_json()
+        topic_id = data.get('topic_id', '')
+        q_index = data.get('within_topic_q_index', data.get('question_index', 0))
+        selected = data.get('selected_index', -1)
+
+        is_correct, correct_index, explanation = validate_quiz_answer(topic_id, q_index, selected)
+        return jsonify({
+            'is_correct': is_correct,
+            'correct_index': correct_index,
+            'explanation': explanation
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
 # 单题 Quiz API（保持兼容）
 # ============================================================
 
@@ -211,7 +236,7 @@ def api_quiz(topic_id):
             return jsonify({'error': f'Topic {topic_id} not found'}), 404
 
         body = topic.get('body', '')
-        questions = parse_quiz(body)
+        questions = parse_quiz(body, topic_id=topic_id)
 
         return jsonify({
             'topic_id': topic_id,
@@ -221,7 +246,7 @@ def api_quiz(topic_id):
             'difficulty': topic.get('difficulty', 3),
             'area': topic.get('area'),
             'direction': topic.get('direction'),
-            'questions': questions,
+            'questions': strip_quiz_answers(questions),
             'current_status': topic.get('status', 'unknown')
         })
     except Exception as e:
@@ -240,7 +265,7 @@ def api_quiz_submit(topic_id):
             return jsonify({'error': f'Topic {topic_id} not found'}), 404
 
         body = topic.get('body', '')
-        questions = parse_quiz(body)
+        questions = parse_quiz(body, topic_id=topic_id)
 
         if not questions:
             return jsonify({'error': 'No questions found'}), 400

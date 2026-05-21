@@ -6,6 +6,7 @@ import os
 import re
 import json
 import random
+import hashlib
 import frontmatter
 
 
@@ -37,6 +38,16 @@ def _save_state(state):
 
 
 _status_overrides = _load_state()
+
+def _mark_tested(topic_ids):
+    """标记哪些 topic 已经被测评过（即使成绩为 0，也与'从未测评'区分）"""
+    tested = set(_status_overrides.get('__tested__', []))
+    tested.update(topic_ids)
+    _status_overrides['__tested__'] = list(tested)
+    _save_state(_status_overrides)
+
+def _is_tested(topic_id):
+    return topic_id in set(_status_overrides.get('__tested__', []))
 
 
 # ============================================================
@@ -104,6 +115,7 @@ def load_topics():
             topic_id = meta.get('id', '')
             if topic_id in _status_overrides:
                 meta['status'] = _status_overrides[topic_id]
+            meta['tested'] = _is_tested(topic_id)
 
             topics.append(meta)
         except Exception as e:
@@ -125,6 +137,7 @@ def load_topic_by_id(topic_id):
 
         if topic_id in _status_overrides:
             meta['status'] = _status_overrides[topic_id]
+        meta['tested'] = _is_tested(topic_id)
 
         return meta
     except Exception as e:
@@ -151,8 +164,8 @@ def load_direction_by_id(direction_id):
 # Quiz 解析
 # ============================================================
 
-def parse_quiz(body):
-    """解析 body 中的 Quiz 题目"""
+def parse_quiz(body, topic_id=''):
+    """解析 body 中的 Quiz 题目，topic_id 用于确定性洗牌（消除答案位置偏差）"""
     questions = []
 
     quiz_match = re.search(r'## Quiz\s*\n(.*?)(?=\n## |\Z)', body, re.DOTALL)
@@ -163,9 +176,23 @@ def parse_quiz(body):
     q_blocks = re.split(r'\n### Q\d+\s*\n', quiz_content)
     q_blocks = [b.strip() for b in q_blocks if b.strip()]
 
-    for block in q_blocks:
+    for i, block in enumerate(q_blocks):
         question = parse_single_question(block)
         if question:
+            question['within_topic_q_index'] = i
+            if topic_id:
+                # 确定性洗牌：相同 topic+题序 每次洗出相同顺序，防止答案总在同一位置
+                seed = int(hashlib.md5(f"{topic_id}:{i}".encode()).hexdigest()[:8], 16)
+                rng = random.Random(seed)
+                opts = list(question['options'])
+                rng.shuffle(opts)
+                letters = ['A', 'B', 'C', 'D']
+                for j, opt in enumerate(opts):
+                    opt['letter'] = letters[j]
+                question['options'] = opts
+                question['correct_index'] = next(
+                    j for j, o in enumerate(opts) if o['correct']
+                )
             questions.append(question)
 
     return questions
@@ -213,6 +240,43 @@ def parse_single_question(block):
     except Exception as e:
         print(f"Error parsing question: {e}")
         return None
+
+
+# ============================================================
+# 答案验证辅助（后端判分，防止前端伪造 is_correct）
+# ============================================================
+
+def strip_quiz_answers(questions):
+    """移除题目中的正确答案信息，用于 GET 响应（防止前端直接读取答案）"""
+    result = []
+    for q in questions:
+        q_copy = {k: v for k, v in q.items() if k != 'correct_index'}
+        q_copy['options'] = [
+            {k: v for k, v in opt.items() if k != 'correct'}
+            for opt in q.get('options', [])
+        ]
+        result.append(q_copy)
+    return result
+
+
+def validate_quiz_answer(topic_id, within_topic_q_index, selected_index):
+    """
+    后端重新验证答案正确性。
+    重新解析 vault 文件，用确定性洗牌后的 correct_index 对比用户选项。
+    返回 (is_correct, correct_index, explanation)
+    """
+    topic = load_topic_by_id(topic_id)
+    if not topic:
+        return False, -1, ''
+
+    qs = parse_quiz(topic.get('body', ''), topic_id=topic_id)
+    if within_topic_q_index >= len(qs):
+        return False, -1, ''
+
+    q = qs[within_topic_q_index]
+    correct_index = q.get('correct_index', -1)
+    is_correct = (selected_index == correct_index)
+    return is_correct, correct_index, q.get('explanation', '')
 
 
 # ============================================================
@@ -323,6 +387,7 @@ def get_graph_data():
             'difficulty': topic.get('difficulty', 3),
             'importance': topic.get('importance', 3),
             'status': topic.get('status', 'unknown'),
+            'tested': topic.get('tested', False),
             'tags': topic.get('tags', []),
             'description': (topic.get('body', '') or '').strip().split('\n')[0][:200]
         })
@@ -378,7 +443,7 @@ def get_global_diagnostic_questions(n_per_direction=2):
         # 从该方向的所有 topic 收集题目
         for topic in dir_topics:
             body = topic.get('body', '')
-            qs = parse_quiz(body)
+            qs = parse_quiz(body, topic_id=topic.get('id', ''))
             for q in qs:
                 q['topic_id'] = topic.get('id')
                 q['topic_name'] = topic.get('name')
@@ -418,7 +483,11 @@ def submit_global_diagnostic(answers):
     for ans in answers:
         did = ans.get('direction_id')
         tid = ans.get('topic_id')
-        correct = ans.get('is_correct', False)
+        q_idx = ans.get('within_topic_q_index', ans.get('question_index', 0))
+        selected = ans.get('selected_index', -1)
+
+        # 后端重新验证，忽略客户端传来的 is_correct
+        correct, _, _ = validate_quiz_answer(tid, q_idx, selected)
 
         if did not in dir_stats:
             dir_stats[did] = {'correct': 0, 'total': 0, 'topics': {}}
@@ -486,13 +555,18 @@ def submit_global_diagnostic(answers):
             update_topic_status(tid, new_status)
             status_updates[tid] = new_status
 
+    total_correct = sum(s['correct'] for s in dir_stats.values())
+    # 标记所有被测评过的 topic
+    tested_ids = list({ans.get('topic_id') for ans in answers if ans.get('topic_id')})
+    _mark_tested(tested_ids)
+
     return {
         'direction_scores': direction_scores,
         'radar_data': radar_data,
         'weak_directions': weak_directions,
         'status_updates': status_updates,
         'total_questions': len(answers),
-        'total_correct': sum(1 for a in answers if a.get('is_correct', False))
+        'total_correct': total_correct
     }
 
 
@@ -523,7 +597,7 @@ def get_direction_quiz(direction_id):
     all_questions = []
     for topic in dir_topics:
         body = topic.get('body', '')
-        qs = parse_quiz(body)
+        qs = parse_quiz(body, topic_id=topic.get('id', ''))
         topic_questions = []
         for q in qs:
             q['topic_id'] = topic.get('id')
@@ -560,16 +634,19 @@ def submit_direction_quiz(direction_id, answers):
     dir_topics = [t for t in topics if t.get('direction') == direction_id]
     dir_topic_ids = {t.get('id') for t in dir_topics}
 
-    # 按 topic 统计
+    # 按 topic 统计（后端重新验证，忽略客户端传来的 is_correct）
     topic_stats = {}
     for ans in answers:
         tid = ans.get('topic_id')
         if tid not in dir_topic_ids:
             continue
+        q_idx = ans.get('within_topic_q_index', ans.get('question_index', 0))
+        selected = ans.get('selected_index', -1)
+        is_correct, _, _ = validate_quiz_answer(tid, q_idx, selected)
         if tid not in topic_stats:
             topic_stats[tid] = {'correct': 0, 'total': 0}
         topic_stats[tid]['total'] += 1
-        if ans.get('is_correct', False):
+        if is_correct:
             topic_stats[tid]['correct'] += 1
 
     # 更新状态
@@ -603,10 +680,20 @@ def submit_direction_quiz(direction_id, answers):
         })
 
     total_q = len(answers)
-    total_c = sum(1 for a in answers if a.get('is_correct', False))
+
+    # 按 topic 统计（重新基于服务端验证结果）
+    validated_correct_count = sum(
+        topic_stats.get(t.get('id'), {}).get('correct', 0)
+        for t in dir_topics
+    )
+    total_c = validated_correct_count
 
     # 找出薄弱 topic（< 67%）
     weak_topics = [r for r in topic_results if r['total'] > 0 and r['percent'] < 67]
+
+    # 标记所有被测评过的 topic
+    tested_ids = list({ans.get('topic_id') for ans in answers if ans.get('topic_id')})
+    _mark_tested(tested_ids)
 
     return {
         'direction_id': direction_id,
@@ -673,14 +760,25 @@ def get_progress():
             'directions': dir_stats
         }
 
-    # 雷达图数据（各方向掌握度）
-    radar_data = []
+    # 进度看板雷达图：5 个大类（可读性好于 15 个方向）
+    area_radar_data = []
+    for area in areas:
+        aid = area.get('id')
+        a_stat = area_stats.get(aid, {})
+        area_radar_data.append({
+            'axis': area.get('name'),
+            'area_id': aid,
+            'value': round(a_stat.get('percent', 0) / 100, 2)
+        })
+
+    # 诊断雷达图：15 个方向（细粒度，用于测评结果）
+    direction_radar_data = []
     for direction in directions:
         did = direction.get('id')
         dir_topics = [t for t in topics if t.get('direction') == did]
         d_total = len(dir_topics)
         d_mastered = sum(1 for t in dir_topics if t.get('status') == 'mastered')
-        radar_data.append({
+        direction_radar_data.append({
             'axis': direction.get('name'),
             'direction_id': did,
             'area_id': direction.get('area'),
@@ -694,7 +792,8 @@ def get_progress():
         'unknown': unknown,
         'mastered_percent': round(mastered / total * 100) if total > 0 else 0,
         'areas': area_stats,
-        'radar_data': radar_data
+        'radar_data': area_radar_data,          # 进度看板用（5 轴）
+        'direction_radar_data': direction_radar_data  # 备用（15 轴）
     }
 
 

@@ -50,13 +50,35 @@
   </div>
   <div class="course-modal-body">
     <div class="course-modal-phase2-note">
-      💡 <strong>Phase 2 规划：</strong>本地 CLI AI Agent 将自动执行搜索并返回推荐课程列表。目前请手动复制提示词。
+      💡 本功能后续将自动化，目前请手动复制提示词到本地 AI Agent 执行。
     </div>
     <div class="course-prompt-box">
       <pre id="course-prompt-text"></pre>
     </div>
     <button class="btn-primary" id="btn-copy-prompt" onclick="copyPrompt()">📋 复制提示词</button>
     <span class="copy-success hidden" id="copy-success">✓ 已复制</span>
+  </div>
+</div>
+
+<!-- 欢迎引导遮罩（首次访问 / 0 进度时显示） -->
+<div class="welcome-overlay hidden" id="welcome-overlay">
+  <div class="welcome-card">
+    <div class="welcome-logo">AI 知识图谱</div>
+    <h2 class="welcome-title">系统学习 AI / LLM / Agent 知识体系</h2>
+    <p class="welcome-desc">涵盖 5 大领域 · 15 个方向 · 60 个核心主题</p>
+    <div class="welcome-actions">
+      <div class="welcome-action-card" onclick="welcomeGo('graph')">
+        <div class="welcome-icon">🗺</div>
+        <div class="welcome-action-title">浏览知识图谱</div>
+        <div class="welcome-action-desc">探索完整知识体系，点击节点深入了解各主题</div>
+      </div>
+      <div class="welcome-action-card" onclick="welcomeGo('quiz')">
+        <div class="welcome-icon">🎯</div>
+        <div class="welcome-action-title">开始诊断测评</div>
+        <div class="welcome-action-desc">30 题快速诊断知识现状，获得个性化学习路径</div>
+      </div>
+    </div>
+    <button class="welcome-skip" onclick="welcomeGo('graph')">直接进入 →</button>
   </div>
 </div>
 
@@ -82,7 +104,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:#607D8B"></div>安全与对齐</div>
       </div>
       <div class="node-info-panel" id="node-info-panel">
-        <div class="node-info-empty">点击节点查看详情<br><br>默认显示 5 个大类<br>点击大类展开方向<br>点击方向展开主题</div>
+        <div class="node-info-empty">点击节点查看详情<br><br>点击大类 → 展开方向<br>点击方向 → 展开主题<br><br><span style="color:var(--success)">●</span> 绿色 = 已掌握　<span style="color:var(--warning)">●</span> 黄色 = 学习中</div>
       </div>
     </div>
     <div class="graph-canvas-wrap">
@@ -179,6 +201,7 @@
 
         <div class="result-actions">
           <button class="btn-secondary" id="btn-redo-diagnostic">重新诊断</button>
+          <button class="btn-secondary" id="btn-view-graph-from-diagnostic">查看图谱 →</button>
           <button class="btn-primary" id="btn-back-to-quiz-home">返回测评首页</button>
         </div>
       </div>
@@ -199,7 +222,8 @@
         </div>
 
         <div class="result-actions">
-          <button class="btn-secondary" id="btn-back-to-quiz-home-2">返回测评首页</button>
+          <button class="btn-secondary" id="btn-view-direction-graph">查看此方向图谱 →</button>
+          <button class="btn-primary" id="btn-back-to-quiz-home-2">返回测评首页</button>
         </div>
       </div>
     </div>

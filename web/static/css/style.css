@@ -240,6 +240,7 @@ body {
 .status-mastered { background: rgba(63,185,80,.15); color: var(--success); border: 1px solid rgba(63,185,80,.3); }
 .status-learning { background: rgba(210,153,34,.15); color: var(--warning); border: 1px solid rgba(210,153,34,.3); }
 .status-unknown { background: rgba(139,148,158,.1); color: var(--text-muted); border: 1px solid var(--border); }
+.status-needs-work { background: rgba(248,81,73,.1); color: var(--danger); border: 1px solid rgba(248,81,73,.3); }
 
 .node-action-btn {
   width: 100%;
@@ -1205,3 +1206,103 @@ body {
 .btn-course-explore:hover {
   background: rgba(188,140,255,0.1);
 }
+
+/* ============================================================
+   欢迎引导遮罩
+   ============================================================ */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.94);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.welcome-card {
+  max-width: 600px;
+  width: 90%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 36px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.welcome-logo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.welcome-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.welcome-action-card {
+  flex: 1;
+  background: var(--bg3);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 22px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  text-align: left;
+}
+
+.welcome-action-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.welcome-icon {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.welcome-action-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.welcome-action-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.welcome-skip {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.welcome-skip:hover { color: var(--text); }

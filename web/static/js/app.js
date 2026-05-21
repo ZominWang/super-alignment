@@ -37,6 +37,17 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
     if (btn.dataset.tab === 'progress') loadProgress();
+    if (btn.dataset.tab === 'graph' && svg) {
+      // 切回图谱 tab 时修正尺寸（曾经在 display:none 状态下测量可能为 0）
+      requestAnimationFrame(() => {
+        const wrap = document.getElementById('graph-svg').parentElement;
+        const W = wrap.clientWidth, H = wrap.clientHeight;
+        if (W > 0 && H > 0) {
+          svg.attr('width', W).attr('height', H);
+          if (simulation) simulation.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.1).restart();
+        }
+      });
+    }
   });
 });
 
@@ -47,18 +58,26 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
-function getStatusLabel(s) {
-  return { mastered: '已掌握', learning: '学习中', unknown: '未学习' }[s] || '未学习';
+function getStatusLabel(s, tested = false) {
+  if (s === 'unknown') return tested ? '需要加强' : '未测评';
+  return { mastered: '已掌握', learning: '学习中' }[s] || '未测评';
 }
 
-function getStatusClass(s) {
-  return { mastered: 'status-mastered', learning: 'status-learning', unknown: 'status-unknown' }[s] || 'status-unknown';
+function getStatusClass(s, tested = false) {
+  if (s === 'unknown') return tested ? 'status-needs-work' : 'status-unknown';
+  return { mastered: 'status-mastered', learning: 'status-learning' }[s] || 'status-unknown';
 }
 
 function scoreColor(pct) {
   if (pct >= 80) return '#3fb950';
   if (pct >= 60) return '#d29922';
   return '#f85149';
+}
+
+function masteryColor(baseColor, mastered, total) {
+  if (!total || !mastered) return baseColor;
+  const pct = Math.min(mastered / total, 1);
+  return d3.interpolateRgb(baseColor, '#3fb950')(pct * 0.55);
 }
 
 // ============================================================
@@ -76,9 +95,13 @@ async function init() {
     State.directions = dirsResp;
     State.areas = areasResp;
 
-    initGraph();
+    // requestAnimationFrame 确保 DOM 布局完成后再读取容器尺寸
+    requestAnimationFrame(() => initGraph());
     renderDirectionsGrid();
-    updateTopbarBadge();
+    const progress = await updateTopbarBadge();
+    if (progress && progress.mastered_percent === 0 && !localStorage.getItem('kg_welcome_dismissed')) {
+      show('welcome-overlay');
+    }
   } catch (e) {
     console.error('Init error:', e);
   }
@@ -89,7 +112,46 @@ async function updateTopbarBadge() {
     const p = await fetch('/api/progress').then(r => r.json());
     document.getElementById('topbar-badge').innerHTML =
       `掌握 <strong>${p.mastered_percent}%</strong> · ${p.mastered}/${p.total}`;
+    return p;
   } catch (e) {}
+}
+
+async function refreshGraphData() {
+  try {
+    const graphResp = await fetch('/api/graph').then(r => r.json());
+    State.graphData = graphResp;
+    // 重新渲染当前层级
+    if (State.graphLevel === 'area') renderAreaLevel();
+    else if (State.graphLevel === 'direction' && State.expandedArea) expandArea(State.expandedArea);
+    else if (State.graphLevel === 'topic' && State.expandedDirection) expandDirection(State.expandedDirection);
+  } catch (e) {}
+}
+
+function switchToTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`panel-${tabName}`).classList.add('active');
+  if (tabName === 'progress') loadProgress();
+  if (tabName === 'graph' && svg) {
+    requestAnimationFrame(() => {
+      const wrap = document.getElementById('graph-svg').parentElement;
+      const W = wrap.clientWidth, H = wrap.clientHeight;
+      if (W > 0 && H > 0) {
+        svg.attr('width', W).attr('height', H);
+        if (simulation) simulation.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.1).restart();
+      }
+    });
+  }
+}
+
+function welcomeGo(tab) {
+  localStorage.setItem('kg_welcome_dismissed', '1');
+  hide('welcome-overlay');
+  if (tab === 'quiz') {
+    switchToTab('quiz');
+    setTimeout(startDiagnostic, 100);
+  }
 }
 
 // ============================================================
@@ -101,7 +163,13 @@ const AREA_R = 42, DIR_R = 26, TOPIC_R = 14;
 
 function initGraph() {
   const wrap = document.getElementById('graph-svg').parentElement;
-  const W = wrap.clientWidth, H = wrap.clientHeight;
+  let W = wrap.clientWidth, H = wrap.clientHeight;
+
+  // 如果布局未完成（display:none 或尺寸还未计算），使用窗口尺寸作为后备
+  if (!W || !H) {
+    W = Math.max(window.innerWidth * 0.58, 400);
+    H = Math.max(window.innerHeight * 0.75, 400);
+  }
 
   svg = d3.select('#graph-svg');
   svg.attr('width', W).attr('height', H);
@@ -114,6 +182,17 @@ function initGraph() {
   g = svg.append('g');
 
   renderAreaLevel();
+
+  // 监听容器尺寸变化（窗口缩放、侧栏展开等）
+  const ro = new ResizeObserver(entries => {
+    const e = entries[0];
+    const nW = e.contentRect.width, nH = e.contentRect.height;
+    if (nW > 0 && nH > 0) {
+      svg.attr('width', nW).attr('height', nH);
+      if (simulation) simulation.force('center', d3.forceCenter(nW / 2, nH / 2)).alpha(0.2).restart();
+    }
+  });
+  ro.observe(wrap);
 }
 
 function clearGraph() {
@@ -154,10 +233,10 @@ function renderAreaLevel() {
 
   node.append('circle')
     .attr('r', AREA_R)
-    .attr('fill', d => d.color)
-    .attr('fill-opacity', 0.85)
-    .attr('stroke', '#fff')
-    .attr('stroke-width', 2)
+    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
+    .attr('fill-opacity', 0.88)
+    .attr('stroke', d => d.mastered > 0 ? '#3fb950' : '#fff')
+    .attr('stroke-width', d => d.mastered > 0 ? 2.5 : 1.5)
     .attr('class', 'node-circle');
 
   node.append('text')
@@ -223,10 +302,10 @@ function expandArea(areaId) {
 
   node.append('circle')
     .attr('r', d => d.type === 'area' ? AREA_R : DIR_R)
-    .attr('fill', d => d.color)
-    .attr('fill-opacity', d => d.type === 'area' ? 0.95 : 0.8)
-    .attr('stroke', '#fff')
-    .attr('stroke-width', d => d.type === 'area' ? 2 : 1.5)
+    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
+    .attr('fill-opacity', d => d.type === 'area' ? 0.95 : 0.82)
+    .attr('stroke', d => d.mastered > 0 ? '#3fb950' : '#fff')
+    .attr('stroke-width', d => d.mastered > 0 ? 2.5 : (d.type === 'area' ? 2 : 1.5))
     .attr('class', 'node-circle');
 
   node.append('text')
@@ -306,20 +385,22 @@ function expandDirection(dirId) {
   node.append('circle')
     .attr('r', d => d.type === 'direction' ? DIR_R : TOPIC_R)
     .attr('fill', d => {
-      if (d.type === 'direction') return d.color;
+      if (d.type === 'direction') return masteryColor(d.color, d.mastered, d.total);
       const s = d.status || 'unknown';
       if (s === 'mastered') return '#3fb950';
       if (s === 'learning') return '#d29922';
+      if (d.tested) return d3.interpolateRgb(d.color, '#f85149')(0.3); // 测评过但未掌握
       return d.color;
     })
-    .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.7)
+    .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.72)
     .attr('stroke', d => {
       const s = d.status || 'unknown';
       if (s === 'mastered') return '#3fb950';
       if (s === 'learning') return '#d29922';
-      return '#fff';
+      if (d.type === 'topic' && d.tested) return '#f85149';
+      return d.type === 'direction' && d.mastered > 0 ? '#3fb950' : '#fff';
     })
-    .attr('stroke-width', 1.5)
+    .attr('stroke-width', d => (d.status === 'mastered' || (d.type === 'topic' && d.tested)) ? 2 : 1.5)
     .attr('class', 'node-circle');
 
   node.append('text')
@@ -360,7 +441,7 @@ function showNodeInfo(d) {
 
   if (d.type === 'topic') {
     const status = d.status || 'unknown';
-    html += `<span class="node-status-badge ${getStatusClass(status)}">${getStatusLabel(status)}</span>`;
+    html += `<span class="node-status-badge ${getStatusClass(status, d.tested)}">${getStatusLabel(status, d.tested)}</span>`;
     html += `<br>
       <button class="node-action-btn" onclick="startTopicQuiz('${d.id}')">开始测评</button>
     `;
@@ -388,23 +469,14 @@ function showNodeInfo(d) {
 }
 
 function startTopicQuiz(topicId) {
-  // 切换到测评 tab 并启动单题测评
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector('[data-tab="quiz"]').classList.add('active');
-  document.getElementById('panel-quiz').classList.add('active');
-
-  // 找到该 topic 所属方向
+  switchToTab('quiz');
   const topicNode = State.graphData.nodes.find(n => n.id === topicId);
   const dirId = topicNode?.direction;
   if (dirId) startDirectionQuiz(dirId);
 }
 
 function startDirectionQuizFromGraph(dirId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector('[data-tab="quiz"]').classList.add('active');
-  document.getElementById('panel-quiz').classList.add('active');
+  switchToTab('quiz');
   startDirectionQuiz(dirId);
 }
 
@@ -517,7 +589,7 @@ function renderCurrentQuestion() {
 
   const total = State.quizQuestions.length;
   const current = State.quizIndex + 1;
-  const pct = ((current - 1) / total * 100).toFixed(1);
+  const pct = (current / total * 100).toFixed(1);
 
   document.getElementById('quiz-progress-fill').style.width = pct + '%';
   document.getElementById('quiz-counter').textContent = `${current} / ${total}`;
@@ -552,17 +624,45 @@ function renderCurrentQuestion() {
   nextBtn.style.opacity = '0.5';
 }
 
-function selectOption(idx) {
+async function selectOption(idx) {
   if (State.answeredCurrent) return;
   State.answeredCurrent = true;
 
   const q = State.quizQuestions[State.quizIndex];
-  const correctIdx = q.correct_index;
-  const isCorrect = idx === correctIdx;
 
-  // 记录答案
+  // 立即锁定所有选项，防止重复点击
+  document.querySelectorAll('.option-btn').forEach(btn => {
+    btn.style.cursor = 'default';
+    btn.onclick = null;
+  });
+
+  // 后端验证答案（防止前端伪造）
+  let isCorrect = false, correctIdx = -1;
+  try {
+    const res = await fetch('/api/answer-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic_id: q.topic_id,
+        within_topic_q_index: q.within_topic_q_index ?? State.quizIndex,
+        selected_index: idx
+      })
+    }).then(r => r.json());
+    isCorrect = res.is_correct;
+    correctIdx = res.correct_index;
+    // 用后端返回的解析覆盖前端（若有）
+    if (res.explanation) {
+      const expBox = document.getElementById('explanation-box');
+      if (expBox) expBox.textContent = res.explanation;
+    }
+  } catch (e) {
+    console.warn('answer-check failed, falling back to client', e);
+  }
+
+  // 记录答案（is_correct 以服务端为准）
   State.quizAnswers.push({
     question_index: State.quizIndex,
+    within_topic_q_index: q.within_topic_q_index ?? State.quizIndex,
     selected_index: idx,
     is_correct: isCorrect,
     topic_id: q.topic_id,
@@ -573,7 +673,6 @@ function selectOption(idx) {
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (i === correctIdx) btn.classList.add('correct');
     else if (i === idx && !isCorrect) btn.classList.add('wrong');
-    btn.style.cursor = 'default';
   });
 
   // 显示解析
@@ -614,6 +713,8 @@ async function finishQuiz() {
   }
 
   updateTopbarBadge();
+  // 刷新图谱状态（后台静默更新，不影响当前界面）
+  refreshGraphData();
 }
 
 async function submitDiagnostic() {
@@ -728,6 +829,20 @@ document.getElementById('btn-back-to-quiz-home-2').addEventListener('click', () 
 document.getElementById('btn-redo-diagnostic').addEventListener('click', () => {
   hide('quiz-result-view');
   startDiagnostic();
+});
+
+// 从测评结果跳转图谱
+document.getElementById('btn-view-graph-from-diagnostic').addEventListener('click', () => {
+  hide('quiz-result-view');
+  show('quiz-home-view');
+  switchToTab('graph');
+});
+document.getElementById('btn-view-direction-graph').addEventListener('click', () => {
+  const dirId = State.currentDirectionId;
+  hide('direction-result-view');
+  show('quiz-home-view');
+  switchToTab('graph');
+  if (dirId) setTimeout(() => expandDirection(dirId), 150);
 });
 
 // ============================================================
@@ -969,20 +1084,17 @@ function renderSearchResult(r) {
 }
 
 function navigateToNode(type, id) {
-  // 切换到图谱 Tab
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector('[data-tab="graph"]').classList.add('active');
-  document.getElementById('panel-graph').classList.add('active');
-
+  switchToTab('graph');
   if (!State.graphData) return;
+
+  const STEP = 120; // ms — enough for one simulation alpha decay step
 
   if (type === 'area') {
     resetToAreas();
     setTimeout(() => {
       const node = State.graphData.nodes.find(n => n.id === id && n.type === 'area');
       if (node) showNodeInfo(node);
-    }, 600);
+    }, STEP);
   } else if (type === 'direction') {
     const dirNode = State.graphData.nodes.find(n => n.id === id && n.type === 'direction');
     if (!dirNode) return;
@@ -992,8 +1104,8 @@ function navigateToNode(type, id) {
       setTimeout(() => {
         const node = State.graphData.nodes.find(n => n.id === id);
         if (node) showNodeInfo(node);
-      }, 600);
-    }, 400);
+      }, STEP);
+    }, STEP);
   } else if (type === 'topic') {
     const topicNode = State.graphData.nodes.find(n => n.id === id && n.type === 'topic');
     if (!topicNode) return;
@@ -1007,9 +1119,9 @@ function navigateToNode(type, id) {
         setTimeout(() => {
           const node = State.graphData.nodes.find(n => n.id === id);
           if (node) showNodeInfo(node);
-        }, 600);
-      }, 500);
-    }, 400);
+        }, STEP);
+      }, STEP);
+    }, STEP);
   }
 }
 

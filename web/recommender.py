@@ -2,7 +2,7 @@
 Recommender - 基于图的学习推荐引擎
 推荐规则：prerequisites 全部 mastered 的 unknown 节点，按 importance 排序
 """
-from vault_parser import load_topics, load_domains
+from vault_parser import load_topics, load_areas, load_directions
 
 
 def get_recommendations(top_n=5):
@@ -14,14 +14,16 @@ def get_recommendations(top_n=5):
     3. 按 importance 降序排序，同 importance 按 difficulty 升序（先易后难）
     """
     topics = load_topics()
-    domains = load_domains()
+    areas = load_areas()
+    directions = load_directions()
 
     # 构建状态查找表
     status_map = {t.get('id'): t.get('status', 'unknown') for t in topics}
 
-    # 构建域名查找表
-    domain_name_map = {d.get('id'): d.get('name') for d in domains}
-    domain_color_map = {d.get('id'): d.get('color') for d in domains}
+    # 构建方向名称和颜色查找表（新三级结构：area -> direction -> topic）
+    direction_name_map = {d.get('id'): d.get('name') for d in directions}
+    direction_color_map = {d.get('id'): d.get('color') for d in directions}
+    area_name_map = {a.get('id'): a.get('name') for a in areas}
 
     candidates = []
 
@@ -45,16 +47,19 @@ def get_recommendations(top_n=5):
             continue
 
         # 计算推荐理由
-        reason = build_reason(topic, prerequisites, status_map, domain_name_map)
+        reason = build_reason(topic, prerequisites, status_map, direction_name_map)
 
-        domain_id = topic.get('domain', '')
+        direction_id = topic.get('direction', '')
+        area_id = topic.get('area', '')
         candidates.append({
             'id': topic_id,
             'name': topic.get('name'),
             'name_en': topic.get('name_en'),
-            'domain': domain_id,
-            'domain_name': domain_name_map.get(domain_id, domain_id),
-            'domain_color': domain_color_map.get(domain_id, '#888888'),
+            'direction': direction_id,
+            'direction_name': direction_name_map.get(direction_id, direction_id),
+            'direction_color': direction_color_map.get(direction_id, '#888888'),
+            'area': area_id,
+            'area_name': area_name_map.get(area_id, area_id),
             'difficulty': topic.get('difficulty', 3),
             'importance': topic.get('importance', 3),
             'status': status,
@@ -68,13 +73,13 @@ def get_recommendations(top_n=5):
     return candidates[:top_n]
 
 
-def build_reason(topic, prerequisites, status_map, domain_name_map):
+def build_reason(topic, prerequisites, status_map, direction_name_map):
     """构建推荐理由"""
     name = topic.get('name', '')
     importance = topic.get('importance', 3)
     difficulty = topic.get('difficulty', 3)
-    domain_id = topic.get('domain', '')
-    domain_name = domain_name_map.get(domain_id, domain_id)
+    direction_id = topic.get('direction', '')
+    domain_name = direction_name_map.get(direction_id, direction_id)
 
     reasons = []
 
