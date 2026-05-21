@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 知识图谱</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="topbar">
+  <div class="topbar-title">AI <span>知识图谱</span></div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="graph">🗺 知识图谱</button>
+    <button class="tab-btn" data-tab="quiz">📝 测评</button>
+    <button class="tab-btn" data-tab="progress">📊 进度看板</button>
+  </div>
+  <div class="topbar-right">
+    <div class="search-wrap" id="search-wrap">
+      <input type="text" class="search-input" id="search-input"
+             placeholder="🔍 搜索知识点，如：RAG、工程、fine-tuning…"
+             autocomplete="off" />
+      <button class="search-clear" id="search-clear" title="清除">✕</button>
+    </div>
+    <div class="progress-badge" id="topbar-badge">加载中...</div>
+  </div>
+</div>
+
+<!-- 搜索结果面板 -->
+<div class="search-overlay hidden" id="search-overlay" onclick="closeSearch()"></div>
+<div class="search-results-panel hidden" id="search-results-panel">
+  <div class="search-results-header">
+    <span id="search-result-count">搜索结果</span>
+    <button class="search-results-close" onclick="closeSearch()">✕</button>
+  </div>
+  <div class="search-results-body" id="search-results-body"></div>
+</div>
+
+<!-- 课程探索弹窗 -->
+<div class="modal-overlay hidden" id="course-modal-overlay" onclick="closeCourseModal()"></div>
+<div class="course-modal hidden" id="course-modal">
+  <div class="course-modal-header">
+    <div>
+      <div class="course-modal-title" id="course-modal-title">课程探索</div>
+      <div class="course-modal-subtitle">将下方提示词粘贴到你的本地 AI Agent（Claude Code / Cursor 等）中</div>
+    </div>
+    <button class="search-results-close" onclick="closeCourseModal()">✕</button>
+  </div>
+  <div class="course-modal-body">
+    <div class="course-modal-phase2-note">
+      💡 <strong>Phase 2 规划：</strong>本地 CLI AI Agent 将自动执行搜索并返回推荐课程列表。目前请手动复制提示词。
+    </div>
+    <div class="course-prompt-box">
+      <pre id="course-prompt-text"></pre>
+    </div>
+    <button class="btn-primary" id="btn-copy-prompt" onclick="copyPrompt()">📋 复制提示词</button>
+    <span class="copy-success hidden" id="copy-success">✓ 已复制</span>
+  </div>
+</div>
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- Tab 1: 知识图谱 -->
+  <div class="tab-panel active" id="panel-graph">
+    <div class="graph-sidebar">
+      <div class="sidebar-header">
+        层级视图
+        <div class="layer-indicator">
+          <div class="layer-dot active" id="ld-1" title="大类"></div>
+          <div class="layer-dot" id="ld-2" title="方向"></div>
+          <div class="layer-dot" id="ld-3" title="主题"></div>
+        </div>
+      </div>
+      <div class="graph-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#4A90E2"></div>基础理论</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#D0021B"></div>大语言模型</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#9013FE"></div>应用技术</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#417505"></div>工程实践</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#607D8B"></div>安全与对齐</div>
+      </div>
+      <div class="node-info-panel" id="node-info-panel">
+        <div class="node-info-empty">点击节点查看详情<br><br>默认显示 5 个大类<br>点击大类展开方向<br>点击方向展开主题</div>
+      </div>
+    </div>
+    <div class="graph-canvas-wrap">
+      <div class="graph-breadcrumb" id="graph-breadcrumb">
+        <span class="crumb" id="crumb-root" onclick="resetToAreas()">全部大类</span>
+      </div>
+      <svg id="graph-svg"></svg>
+      <div class="graph-controls">
+        <button class="ctrl-btn" onclick="zoomIn()" title="放大">+</button>
+        <button class="ctrl-btn" onclick="zoomOut()" title="缩小">−</button>
+        <button class="ctrl-btn" onclick="resetZoom()" title="复位">⌂</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 测评 -->
+  <div class="tab-panel" id="panel-quiz">
+
+    <!-- 测评首页 -->
+    <div id="quiz-home-view">
+      <div class="quiz-home">
+        <div class="quiz-home-header">
+          <h2>知识测评</h2>
+          <p>通过测评了解你的 AI 知识现状，定向提升薄弱领域</p>
+        </div>
+
+        <!-- 全局诊断 -->
+        <div class="diagnostic-card">
+          <h3>🔍 全局诊断</h3>
+          <p>30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平<br>完成后获得雷达图分析 + 个性化推荐</p>
+          <button class="btn-primary" id="btn-start-diagnostic">开始全局诊断 →</button>
+        </div>
+
+        <!-- 方向单独测评 -->
+        <div class="directions-section">
+          <h3>── 或选择单个方向测评 ──</h3>
+          <div class="directions-grid" id="directions-grid">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测评进行中 -->
+    <div id="quiz-flow-view" class="hidden">
+      <div class="quiz-flow">
+        <div class="quiz-flow-header">
+          <div>
+            <button class="btn-secondary" id="btn-quit-quiz">← 退出</button>
+          </div>
+          <div class="quiz-flow-title">
+            <h3 id="quiz-flow-title">测评</h3>
+            <p id="quiz-flow-subtitle">回答完所有题目</p>
+          </div>
+        </div>
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="quiz-direction-label" id="quiz-direction-label"></div>
+        <div id="quiz-question-area">
+          <!-- 动态渲染 -->
+        </div>
+        <div class="quiz-nav">
+          <span class="quiz-counter" id="quiz-counter">0 / 0</span>
+          <button class="btn-primary" id="btn-next-question">下一题 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 诊断结果 -->
+    <div id="quiz-result-view" class="hidden">
+      <div class="result-panel">
+        <div class="result-header">
+          <h2>📊 诊断结果</h2>
+          <div class="result-score-big" id="result-score-big">—</div>
+          <p id="result-score-label">正确率</p>
+        </div>
+
+        <div class="result-layout">
+          <div class="radar-container">
+            <svg id="radar-svg" width="300" height="300"></svg>
+          </div>
+          <div class="scores-container">
+            <h4>各方向得分</h4>
+            <div id="direction-scores-list"></div>
+          </div>
+        </div>
+
+        <div class="weak-section" id="weak-section">
+          <h4>⚠️ 建议重点学习方向</h4>
+          <div class="weak-tags" id="weak-tags"></div>
+          <p style="font-size:13px;color:var(--text-muted)">点击上方标签开始针对性测评</p>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn-secondary" id="btn-redo-diagnostic">重新诊断</button>
+          <button class="btn-primary" id="btn-back-to-quiz-home">返回测评首页</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方向测评结果 -->
+    <div id="direction-result-view" class="hidden">
+      <div class="result-panel">
+        <div class="result-header">
+          <h2 id="dir-result-title">方向测评结果</h2>
+          <div class="result-score-big" id="dir-result-score">—</div>
+          <p id="dir-result-label">正确率</p>
+        </div>
+
+        <div class="scores-container" style="margin-bottom:16px;max-height:none;">
+          <h4>各主题掌握情况</h4>
+          <div id="dir-topic-results"></div>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn-secondary" id="btn-back-to-quiz-home-2">返回测评首页</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tab 3: 进度看板 -->
+  <div class="tab-panel" id="panel-progress">
+    <div class="progress-page">
+      <div class="progress-summary" id="progress-summary">
+        <div class="stat-card stat-total"><div class="stat-value" id="stat-total">—</div><div class="stat-label">总主题数</div></div>
+        <div class="stat-card stat-mastered"><div class="stat-value" id="stat-mastered">—</div><div class="stat-label">已掌握</div></div>
+        <div class="stat-card stat-learning"><div class="stat-value" id="stat-learning">—</div><div class="stat-label">学习中</div></div>
+        <div class="stat-card stat-unknown"><div class="stat-value" id="stat-unknown">—</div><div class="stat-label">未开始</div></div>
+      </div>
+
+      <div class="progress-layout">
+        <div class="progress-radar-box">
+          <h3>掌握度雷达图</h3>
+          <svg id="progress-radar-svg" width="340" height="300"></svg>
+        </div>
+        <div class="progress-areas-box">
+          <h3>大类进度</h3>
+          <div id="area-progress-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
