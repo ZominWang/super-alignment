@@ -513,15 +513,28 @@ function renderDirectionsGrid() {
   const areaColors = {};
   State.areas.forEach(a => { areaColors[a.id] = a.color; });
 
+  // 从图谱数据中取各方向的掌握度
+  const dirMastery = {};
+  if (State.graphData) {
+    State.graphData.nodes.filter(n => n.type === 'direction').forEach(n => {
+      dirMastery[n.id] = { mastered: n.mastered || 0, total: n.total || 0 };
+    });
+  }
+
   grid.innerHTML = State.directions.map(d => {
     const color = areaColors[d.area] || '#888';
+    const m = dirMastery[d.id] || { mastered: 0, total: d.topic_count || 4 };
+    const pct = m.total > 0 ? Math.round(m.mastered / m.total * 100) : 0;
+    const pctColor = pct >= 80 ? '#3fb950' : pct >= 40 ? '#d29922' : color;
     return `
       <div class="direction-card" onclick="startDirectionQuiz('${d.id}')">
         <div class="direction-card-top">
           <div class="direction-color-dot" style="background:${color}"></div>
           <div class="direction-card-name">${d.name}</div>
+          ${pct > 0 ? `<span class="dir-card-pct" style="color:${pctColor}">${pct}%</span>` : ''}
         </div>
-        <div class="direction-card-meta">${d.topic_count || 4} 个主题 · ${(d.topic_count || 4) * 3} 道题</div>
+        <div class="direction-card-meta">${m.total} 个主题 · ${m.total * 3} 道题</div>
+        ${pct > 0 ? `<div class="dir-card-bar"><div class="dir-card-bar-fill" style="width:${pct}%;background:${pctColor}"></div></div>` : ''}
       </div>
     `;
   }).join('');
@@ -803,7 +816,8 @@ function renderDirectionResult(result) {
   const topicResults = document.getElementById('dir-topic-results');
   topicResults.innerHTML = (result.topic_results || []).map(t => {
     const color = scoreColor(t.percent);
-    const statusLabel = getStatusLabel(t.new_status);
+    const wasTested = (t.total || 0) > 0; // 本次测评过的 topic，unknown 显示"需要加强"
+    const statusLabel = getStatusLabel(t.new_status, wasTested);
     return `
       <div class="score-row">
         <span class="score-name" title="${t.topic_name}">${t.topic_name}</span>
@@ -811,7 +825,7 @@ function renderDirectionResult(result) {
           <div class="score-bar-fill" style="width:${t.percent}%;background:${color}"></div>
         </div>
         <span class="score-pct" style="color:${color}">${t.percent}%</span>
-        <span class="node-status-badge ${getStatusClass(t.new_status)}" style="font-size:10px;padding:2px 8px">${statusLabel}</span>
+        <span class="node-status-badge ${getStatusClass(t.new_status, wasTested)}" style="font-size:10px;padding:2px 8px">${statusLabel}</span>
       </div>
     `;
   }).join('');
@@ -944,6 +958,7 @@ async function loadProgress() {
     document.getElementById('stat-total').textContent = p.total;
     document.getElementById('stat-mastered').textContent = p.mastered;
     document.getElementById('stat-learning').textContent = p.learning;
+    document.getElementById('stat-needs-work').textContent = p.needs_work ?? 0;
     document.getElementById('stat-unknown').textContent = p.unknown;
 
     // 雷达图

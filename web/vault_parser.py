@@ -718,7 +718,10 @@ def get_progress():
     total = len(topics)
     mastered = sum(1 for t in topics if t.get('status') == 'mastered')
     learning = sum(1 for t in topics if t.get('status') == 'learning')
-    unknown = total - mastered - learning
+    unknown_all = total - mastered - learning
+    needs_work = sum(1 for t in topics if t.get('status') == 'unknown' and t.get('tested', False))
+    not_tested = unknown_all - needs_work
+    unknown = unknown_all  # 保持兼容
 
     # 按 area 统计
     area_stats = {}
@@ -789,7 +792,8 @@ def get_progress():
         'total': total,
         'mastered': mastered,
         'learning': learning,
-        'unknown': unknown,
+        'unknown': not_tested,    # 从未测评
+        'needs_work': needs_work, # 测评过但未掌握
         'mastered_percent': round(mastered / total * 100) if total > 0 else 0,
         'areas': area_stats,
         'radar_data': area_radar_data,          # 进度看板用（5 轴）
