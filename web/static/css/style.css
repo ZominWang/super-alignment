@@ -488,7 +488,26 @@ body {
 .diagnostic-card p {
   color: var(--text-muted);
   font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.diagnostic-notice {
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
   margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.diagnostic-notice-icon {
+  margin-right: 4px;
+}
+
+.diagnostic-notice strong {
+  color: var(--text);
 }
 
 .btn-primary {
@@ -827,6 +846,81 @@ body {
 }
 
 .weak-tag:hover { background: rgba(210,153,34,.2); }
+
+.next-steps-section {
+  background: var(--bg2);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.next-steps-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--success);
+}
+
+.next-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.next-step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+
+.next-step-item:hover {
+  border-color: var(--accent);
+  background: rgba(9, 105, 218, 0.05);
+}
+
+.next-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.next-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.next-step-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.next-step-action {
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+}
 
 .result-actions {
   display: flex;

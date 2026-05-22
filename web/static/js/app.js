@@ -501,7 +501,7 @@ function showNodeInfo(d) {
   const escapedName = d.name.replace(/'/g, "\\'");
   const courseBtn = document.createElement('button');
   courseBtn.className = 'btn-course-explore';
-  courseBtn.textContent = '🎓 用 AI Agent 搜索相关课程';
+  courseBtn.textContent = '🎓 生成课程搜索提示词';
   courseBtn.onclick = () => openCourseExplore(d.type, d.id, d.name);
   panel.querySelector('.node-info-card').appendChild(courseBtn);
 }
@@ -1037,6 +1037,81 @@ function renderDiagnosticResult(result) {
       `<span class="weak-tag" onclick="startDirectionQuiz('${w.direction_id}')">${w.name} (${w.percent}%)</span>`
     ).join('');
   }
+
+  // 推荐下一步
+  renderNextSteps(result);
+}
+
+function renderNextSteps(result) {
+  const section = document.getElementById('next-steps-section');
+  const list = document.getElementById('next-steps-list');
+  if (!section || !list) return;
+
+  const allTopics = (State.graphData?.nodes || []).filter(n => n.type === 'topic');
+  const weakDirs = result.weak_directions || [];
+  const scores = result.direction_scores || {};
+
+  // 收集候选：从弱方向或低分方向中，找难度低（1-2）且未测评的 topic
+  const candidates = [];
+  const weakDirIds = new Set(weakDirs.map(w => w.direction_id));
+
+  // 先从弱方向找基础 topic
+  for (const dirId of weakDirIds) {
+    const dirTopics = allTopics
+      .filter(t => t.direction === dirId && (t.difficulty || 3) <= 2)
+      .sort((a, b) => (a.difficulty || 3) - (b.difficulty || 3));
+    for (const t of dirTopics.slice(0, 1)) {
+      candidates.push({ topic: t, reason: '薄弱方向基础入口' });
+    }
+  }
+
+  // 再从中等分数方向（50%以下）补充
+  const midDirs = Object.entries(scores)
+    .filter(([did, info]) => info.percent > 0 && info.percent < 50 && !weakDirIds.has(did))
+    .sort((a, b) => a[1].percent - b[1].percent);
+  for (const [did, info] of midDirs.slice(0, 2)) {
+    const t = allTopics.find(t => t.direction === did && (t.difficulty || 3) <= 2);
+    if (t) candidates.push({ topic: t, reason: '需要巩固的方向' });
+  }
+
+  // 保证有"MCP"和"Skill"入口（Agent 实践导向）
+  const practiceTopics = ['mcp_protocol', 'skill_building', 'agent_basics'];
+  for (const pid of practiceTopics) {
+    const t = allTopics.find(t => t.id === pid);
+    if (t && !candidates.find(c => c.topic.id === pid)) {
+      candidates.push({ topic: t, reason: 'Agent 实践必学' });
+      if (candidates.length >= 5) break;
+    }
+  }
+
+  const steps = candidates.slice(0, 5);
+
+  if (steps.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = steps.map((s, i) => {
+    const t = s.topic;
+    const dirName = (State.directions || []).find(d => d.id === t.direction)?.name || t.direction;
+    return `
+      <div class="next-step-item" onclick="goToTopicFromResult('${t.id}')">
+        <div class="next-step-num">${i + 1}</div>
+        <div class="next-step-content">
+          <div class="next-step-title">${t.name}</div>
+          <div class="next-step-meta">${dirName} · ${s.reason}</div>
+        </div>
+        <span class="next-step-action">查看 →</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function goToTopicFromResult(topicId) {
+  hide('quiz-result-view');
+  switchToTab('graph');
+  setTimeout(() => navigateToNode(topicId), 200);
 }
 
 function renderDirectionResult(result) {
@@ -1392,6 +1467,7 @@ function navigateToNode(type, id) {
 function closeSearch() {
   document.getElementById('search-results-panel').classList.add('hidden');
   document.getElementById('search-overlay').classList.add('hidden');
+  document.getElementById('search-input').value = '';
 }
 
 // ============================================================
@@ -1436,7 +1512,7 @@ function copyPrompt() {
 function appendCourseExploreBtn(container, nodeType, nodeId, nodeName) {
   const btn = document.createElement('button');
   btn.className = 'btn-course-explore';
-  btn.textContent = '🎓 用 AI Agent 搜索相关课程';
+  btn.textContent = '🎓 生成课程搜索提示词';
   btn.onclick = () => openCourseExplore(nodeType, nodeId, nodeName);
   container.appendChild(btn);
 }
