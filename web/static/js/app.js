@@ -12,6 +12,13 @@ if (typeof onLangChange === 'function') {
     if (typeof renderDirectionsGrid === 'function') renderDirectionsGrid();
     if (typeof renderPathPanel      === 'function' && State.graphView === 'path') renderPathPanel();
     if (typeof updateTopbarBadge    === 'function') updateTopbarBadge();
+    // Re-render quiz result views if visible
+    if (State._lastDiagnosticResult && !document.getElementById('quiz-result-view').classList.contains('hidden')) {
+      renderDiagnosticResult(State._lastDiagnosticResult);
+    }
+    if (State._lastDirectionResult && !document.getElementById('direction-result-view').classList.contains('hidden')) {
+      renderDirectionResult(State._lastDirectionResult);
+    }
     // Re-render graph labels
     if (State.graphView === 'global') renderGlobalView();
     else if (State.graphLevel === 'area') renderAreaLevel();
@@ -38,6 +45,9 @@ const State = {
   filterArea: null,          // 图例点击筛选：null = 全部显示
   filterTag: null,           // 标签点击筛选：null = 全部显示
   searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
+
+  _lastDiagnosticResult: null, // 最近一次诊断结果（供语言切换时重渲染）
+  _lastDirectionResult: null,  // 最近一次方向测评结果
 
   // 测评
   quizMode: null,            // 'diagnostic' | 'direction'
@@ -1579,6 +1589,7 @@ async function submitDiagnostic() {
       body: JSON.stringify({ answers: State.quizAnswers })
     }).then(r => r.json());
 
+    State._lastDiagnosticResult = result;
     renderDiagnosticResult(result);
     show('quiz-result-view');
   } catch (e) {
@@ -1595,6 +1606,7 @@ async function submitDirectionQuiz() {
       body: JSON.stringify({ answers: State.quizAnswers })
     }).then(r => r.json());
 
+    State._lastDirectionResult = result;
     renderDirectionResult(result);
     show('direction-result-view');
   } catch (e) {
@@ -1642,9 +1654,10 @@ function renderDiagnosticResult(result) {
     weakSection.style.display = 'none';
   } else {
     weakSection.style.display = 'block';
-    weakTags.innerHTML = weakDirs.map(w =>
-      `<span class="weak-tag" data-id="${escHtml(w.direction_id)}">${escHtml(w.name)} (${w.percent}%)</span>`
-    ).join('');
+    weakTags.innerHTML = weakDirs.map(w => {
+      const displayName = getLang() === 'en' && w.name_en ? w.name_en : w.name;
+      return `<span class="weak-tag" data-id="${escHtml(w.direction_id)}">${escHtml(displayName)} (${w.percent}%)</span>`;
+    }).join('');
     weakTags.querySelectorAll('.weak-tag').forEach(tag => {
       tag.addEventListener('click', () => startDirectionQuiz(tag.dataset.id));
     });
