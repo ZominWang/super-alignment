@@ -303,15 +303,13 @@ function initGraph() {
   g = svg.append('g');
 
   renderGlobalView();
-  // 默认侧栏显示路径导览（图谱保持全局总览）
-  setGraphView('path');
 
   const ro = new ResizeObserver(entries => {
     const e = entries[0];
     const nW = e.contentRect.width, nH = e.contentRect.height;
     if (nW > 0 && nH > 0) {
       svg.attr('width', nW).attr('height', nH);
-      if (State.graphView === 'global') {
+      if (State.graphView === 'global' || State.graphView === 'path') {
         renderGlobalView();
       } else if (State.graphLevel === 'area') {
         renderAreaLevel();
@@ -729,8 +727,10 @@ function showNodeInfo(d) {
     mkChain(prereqIds, 'node.prerequisites');
     mkChain(dependIds, 'node.leads_to');
 
-    // Action buttons
-    _addBtn(card, 'node-action-btn', 'quiz', t('btn.quiz_topic'));
+    // Action buttons — look up parent direction's topic count for quiz label
+    const parentDir = (State.graphData?.nodes || []).find(n => n.id === d.direction && n.type === 'direction');
+    const dirTopicCount = parentDir ? (parentDir.total || parentDir.topic_count || 0) : 0;
+    _addBtn(card, 'node-action-btn', 'quiz', t('btn.quiz_topic', {n: dirTopicCount * 3}));
     if (State.graphView === 'global') _addBtn(card, 'node-action-btn node-expand-btn', 'navigate', t('btn.locate'));
 
   } else if (d.type === 'direction') {
@@ -738,7 +738,8 @@ function showNodeInfo(d) {
     countEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:10px;';
     countEl.textContent = t('node.topics_in', {n: d.topic_count || d.total || 0});
     card.appendChild(countEl);
-    _addBtn(card, 'node-action-btn', 'dir-quiz', t('btn.quiz_dir'));
+    const dirQCount = (d.topic_count || d.total || 0) * 3;
+    _addBtn(card, 'node-action-btn', 'dir-quiz', t('btn.quiz_dir', {n: dirQCount}));
     const viewAction = State.graphView === 'global' ? 'view-dir-global' : 'expand-dir';
     _addBtn(card, 'node-action-btn node-expand-btn', viewAction, t(State.graphView === 'global' ? 'btn.view_topics' : 'btn.expand_dir'));
 
@@ -1479,6 +1480,11 @@ function renderCurrentQuestion() {
   nextBtn.textContent = State.quizIndex === total - 1 ? t('btn.submit') : t('btn.next');
   nextBtn.disabled = true;
   nextBtn.style.opacity = '0.5';
+  const skipBtn = document.getElementById('btn-skip-question');
+  if (skipBtn) {
+    skipBtn.textContent = t('btn.skip');
+    skipBtn.style.display = '';
+  }
 }
 
 async function selectOption(idx) {
@@ -1543,15 +1549,28 @@ async function selectOption(idx) {
   const expBox = document.getElementById('explanation-box');
   if (expBox) expBox.classList.remove('hidden');
 
-  // 解锁下一题
+  // 解锁下一题，隐藏跳过按钮
   const nextBtn = document.getElementById('btn-next-question');
   nextBtn.disabled = false;
   nextBtn.style.opacity = '1';
+  const skipBtn = document.getElementById('btn-skip-question');
+  if (skipBtn) skipBtn.style.display = 'none';
 }
 
 document.getElementById('btn-next-question').addEventListener('click', () => {
   if (!State.answeredCurrent) return;
 
+  State.quizIndex++;
+  if (State.quizIndex >= State.quizQuestions.length) {
+    finishQuiz();
+  } else {
+    State.answeredCurrent = false;
+    renderCurrentQuestion();
+  }
+});
+
+document.getElementById('btn-skip-question').addEventListener('click', () => {
+  if (State.answeredCurrent) return; // already answered, use next button instead
   State.quizIndex++;
   if (State.quizIndex >= State.quizQuestions.length) {
     finishQuiz();

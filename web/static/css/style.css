@@ -1104,6 +1104,9 @@ body {
 }
 
 .quiz-counter { font-size: 13px; color: var(--text-muted); }
+.quiz-nav-btns { display: flex; gap: 8px; align-items: center; }
+.btn-skip-question { font-size: 13px; padding: 6px 14px; opacity: 0.7; }
+.btn-skip-question:hover { opacity: 1; }
 
 /* ============================================================
    雷达图结果

@@ -80,8 +80,8 @@
         </div>
       </div>
       <div class="view-toggle-bar">
-        <button class="view-toggle-btn active" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
-        <button class="view-toggle-btn" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
+        <button class="view-toggle-btn" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
+        <button class="view-toggle-btn active" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
         <!-- 领域浏览：通过双击节点或"查看主题图"按钮进入，不作为顶级导航入口 -->
         <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')" style="display:none">领域浏览</button>
       </div>
@@ -203,7 +203,10 @@
         </div>
         <div class="quiz-nav">
           <span class="quiz-counter" id="quiz-counter">0 / 0</span>
-          <button class="btn-primary" id="btn-next-question">下一题 →</button>
+          <div class="quiz-nav-btns">
+            <button class="btn-secondary btn-skip-question" id="btn-skip-question">跳过</button>
+            <button class="btn-primary" id="btn-next-question">下一题 →</button>
+          </div>
         </div>
       </div>
     </div>
