@@ -1,0 +1,18 @@
+id: apply
+name: 会用
+name_en: "Applied Usage"
+desc: "从理解AI能力到使用Agent工具链的实践路径，适合想把AI用起来的人"
+desc_en: "A practical path from understanding AI capabilities to using agent toolchains — for people who want to get things done with AI."
+steps:
+  - id: llm_capabilities
+  - id: basic_prompting
+  - id: chain_of_thought
+  - id: context_engineering
+  - id: rag_basics
+  - id: embeddings
+  - id: agent_basics
+  - id: tool_use
+  - id: mcp_protocol
+  - id: skill_building
+  - id: workflow_automation
+  - id: ai_coding

@@ -5,6 +5,21 @@
 
 'use strict';
 
+// ── Language switch (i18n.js loaded before this file) ──────────
+if (typeof onLangChange === 'function') {
+  onLangChange(() => {
+    // Re-render dynamic content on language change
+    if (typeof renderDirectionsGrid === 'function') renderDirectionsGrid();
+    if (typeof renderPathPanel      === 'function' && State.graphView === 'path') renderPathPanel();
+    if (typeof updateTopbarBadge    === 'function') updateTopbarBadge();
+    // Re-render graph labels
+    if (State.graphView === 'global') renderGlobalView();
+    else if (State.graphLevel === 'area') renderAreaLevel();
+    else if (State.graphLevel === 'direction' && State.expandedArea) expandArea(State.expandedArea);
+    else if (State.graphLevel === 'topic'     && State.expandedDirection) expandDirection(State.expandedDirection);
+  });
+}
+
 // ============================================================
 // 全局状态
 // ============================================================
@@ -18,6 +33,8 @@ const State = {
   directions: [],            // 所有方向数据
   areas: [],                 // 所有大类数据
   activePath: 'apply',       // 'apply' | 'understand'
+  nodePositions: {},         // topicId → {x, y}，全局视图坐标
+  activePathStep: null,      // 当前高亮的路径步骤 id
 
   // 测评
   quizMode: null,            // 'diagnostic' | 'direction'
@@ -72,6 +89,27 @@ const LEARNING_PATHS = {
 };
 
 // ============================================================
+// 安全工具：HTML 实体转义，防止 XSS
+// ============================================================
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+// fetch 超时包装器（默认 8 秒）
+function fetchWithTimeout(url, options = {}, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...options, signal: ctrl.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+// ============================================================
 // Tab 切换
 // ============================================================
 
@@ -110,8 +148,8 @@ function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
 function getStatusLabel(s, tested = false) {
-  if (s === 'unknown') return tested ? '需要加强' : '未测评';
-  return { mastered: '已掌握', learning: '学习中' }[s] || '未测评';
+  if (s === 'unknown') return tested ? t('status.needs_work') : t('status.unknown');
+  return { mastered: t('status.mastered'), learning: t('status.learning') }[s] || t('status.unknown');
 }
 
 function getStatusClass(s, tested = false) {
@@ -137,21 +175,34 @@ function masteryColor(baseColor, mastered, total) {
 
 async function init() {
   try {
-    const [graphResp, dirsResp, areasResp] = await Promise.all([
-      fetch('/api/graph').then(r => r.json()),
-      fetch('/api/directions').then(r => r.json()),
-      fetch('/api/areas').then(r => r.json())
+    const [graphResp, dirsResp, areasResp, pathsResp] = await Promise.all([
+      fetchWithTimeout('/api/graph').then(r => r.json()),
+      fetchWithTimeout('/api/directions').then(r => r.json()),
+      fetchWithTimeout('/api/areas').then(r => r.json()),
+      fetchWithTimeout('/api/learning-paths').then(r => r.json()).catch(() => null),
     ]);
-    State.graphData = graphResp;
-    State.directions = dirsResp;
-    State.areas = areasResp;
+    State.graphData   = graphResp;
+    State.directions  = dirsResp;
+    State.areas       = areasResp;
+
+    // Merge API-sourced paths into LEARNING_PATHS (#30)
+    if (Array.isArray(pathsResp)) {
+      pathsResp.forEach(p => {
+        if (p.id && Array.isArray(p.steps)) {
+          LEARNING_PATHS[p.id] = {
+            label:   p.name   || p.id,
+            label_en: p.name_en || p.name || p.id,
+            desc:    p.desc   || '',
+            desc_en: p.desc_en || p.desc || '',
+            steps:   p.steps.map(s => (typeof s === 'string' ? s : s.id)),
+          };
+        }
+      });
+    }
 
     requestAnimationFrame(() => initGraph());
     renderDirectionsGrid();
-    const progress = await updateTopbarBadge();
-    if (progress && progress.mastered_percent === 0 && !localStorage.getItem('kg_welcome_dismissed')) {
-      show('welcome-overlay');
-    }
+    await updateTopbarBadge();
   } catch (e) {
     console.error('Init error:', e);
   }
@@ -159,22 +210,30 @@ async function init() {
 
 async function updateTopbarBadge() {
   try {
-    const p = await fetch('/api/progress').then(r => r.json());
-    document.getElementById('topbar-badge').innerHTML =
-      `掌握 <strong>${p.mastered_percent}%</strong> · ${p.mastered}/${p.total}`;
+    const p = await fetchWithTimeout('/api/progress').then(r => r.json());
+    const badge = document.getElementById('topbar-badge');
+    badge.textContent = '';
+    badge.append(t('badge.mastered') + ' ');
+    const strong = document.createElement('strong');
+    strong.textContent = p.mastered_percent + '%';
+    badge.append(strong, ` · ${p.mastered}/${p.total}`);
     return p;
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Progress badge update failed:', e);
+  }
 }
 
 async function refreshGraphData() {
   try {
-    const graphResp = await fetch('/api/graph').then(r => r.json());
+    const graphResp = await fetchWithTimeout('/api/graph').then(r => r.json());
     State.graphData = graphResp;
     // 重新渲染当前层级
     if (State.graphLevel === 'area') renderAreaLevel();
     else if (State.graphLevel === 'direction' && State.expandedArea) expandArea(State.expandedArea);
     else if (State.graphLevel === 'topic' && State.expandedDirection) expandDirection(State.expandedDirection);
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Graph data refresh failed:', e);
+  }
 }
 
 function switchToTab(tabName) {
@@ -202,14 +261,6 @@ function switchToTab(tabName) {
   }
 }
 
-function welcomeGo(tab) {
-  localStorage.setItem('kg_welcome_dismissed', '1');
-  hide('welcome-overlay');
-  if (tab === 'quiz') {
-    switchToTab('quiz');
-    setTimeout(startDiagnostic, 100);
-  }
-}
 
 // ============================================================
 // Tab 1: 知识图谱 (D3)
@@ -239,6 +290,8 @@ function initGraph() {
   g = svg.append('g');
 
   renderGlobalView();
+  // 默认侧栏显示路径导览（图谱保持全局总览）
+  setTimeout(() => setGraphView('path'), 80);
 
   const ro = new ResizeObserver(entries => {
     const e = entries[0];
@@ -311,7 +364,7 @@ function renderAreaLevel() {
 
   node.append('text').attr('dy', '14')
     .attr('class', 'node-label node-label-area')
-    .text(d => d.name);
+    .text(d => entityName(d));
 
   fitGraph();
 }
@@ -322,7 +375,7 @@ function expandArea(areaId) {
   State.expandedDirection = null;
   const areaNode = State.graphData.nodes.find(n => n.id === areaId);
   updateLayerDots(2);
-  updateBreadcrumb([{ id: areaId, name: areaNode?.name || areaId, onclick: `resetToAreas()` }]);
+  updateBreadcrumb([{ id: areaId, name: areaNode?.name || areaId, fn: resetToAreas }]);
   clearGraph();
 
   const wrap = document.getElementById('graph-svg').parentElement;
@@ -376,7 +429,7 @@ function expandArea(areaId) {
     .attr('dy', d => d.type === 'area' ? '-6' : '4')
     .attr('class', d => `node-label ${d.type === 'area' ? 'node-label-area' : 'node-label-direction'}`)
     .style('font-size', d => d.type === 'area' ? '18px' : '11px')
-    .text(d => d.type === 'area' ? (d.icon || d.name) : d.name);
+    .text(d => d.type === 'area' ? (d.icon || entityName(d)) : entityName(d));
 
   function ticked() {
     link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
@@ -396,8 +449,8 @@ function expandDirection(dirId) {
 
   updateLayerDots(3);
   updateBreadcrumb([
-    { id: areaId, name: areaNode?.name || areaId, onclick: `resetToAreas()` },
-    { id: dirId, name: dirNode?.name || dirId, onclick: `expandArea('${areaId}')` }
+    { id: areaId, name: areaNode?.name || areaId, fn: resetToAreas },
+    { id: dirId, name: dirNode?.name || dirId, fn: () => expandArea(areaId) }
   ]);
   clearGraph();
 
@@ -480,7 +533,7 @@ function expandDirection(dirId) {
     .attr('class', 'node-label')
     .style('font-size', d => d.type === 'direction' ? '11px' : '10px')
     .text(d => {
-      const n = d.name || '';
+      const n = entityName(d) || '';
       return n.length > 8 ? n.slice(0, 8) + '…' : n;
     });
 
@@ -496,7 +549,7 @@ function expandDirection(dirId) {
 
 function resetToAreas() {
   document.getElementById('node-info-panel').innerHTML =
-    '<div class="node-info-empty">点击节点查看详情<br><br><strong>全局总览</strong>：看 5 大域 + 15 方向全貌<br><strong>领域浏览</strong>：逐层展开到具体主题</div>';
+    `<div class="node-info-empty">${t('node.empty')}<br><br><strong>${t('node.hint.global')}</strong>：${t('node.hint.global.desc')}<br><strong>${t('node.hint.domain')}</strong>：${t('node.hint.domain.desc')}</div>`;
   if (State.graphView === 'global') {
     renderGlobalView();
   } else {
@@ -506,50 +559,66 @@ function resetToAreas() {
 
 function showNodeInfo(d) {
   const panel = document.getElementById('node-info-panel');
-  const typeLabel = { area: '大类', direction: '方向', topic: '主题' }[d.type] || d.type;
+  const typeLabel = t('type.' + d.type) || d.type;
+  const displayName = entityName(d);
+  const displayNameAlt = (getLang() === 'en') ? (d.name || '') : (d.name_en || '');
   let html = `
     <div class="node-info-card">
-      <div class="node-info-type">${typeLabel}</div>
-      <div class="node-info-name">${d.name || ''}</div>
-      <div class="node-info-name-en">${d.name_en || ''}</div>
-      <div class="node-info-desc">${d.description || ''}</div>
+      <div class="node-info-type">${escHtml(typeLabel)}</div>
+      <div class="node-info-name">${escHtml(displayName)}</div>
+      <div class="node-info-name-en">${escHtml(displayNameAlt)}</div>
+      <div class="node-info-desc">${escHtml(d.description || '')}</div>
   `;
 
   if (d.type === 'topic') {
     const status = d.status || 'unknown';
     html += `<span class="node-status-badge ${getStatusClass(status, d.tested)}">${getStatusLabel(status, d.tested)}</span>`;
-    html += `<br><button class="node-action-btn" onclick="startTopicQuiz('${d.id}')">测评本方向（12题）</button>`;
+    html += `<br><button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_topic'))}</button>`;
     if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" onclick="navigateToNode('topic','${d.id}')">在图谱中定位 →</button>`;
+      html += `<button class="node-action-btn node-expand-btn" data-action="navigate">${escHtml(t('btn.locate'))}</button>`;
     }
   } else if (d.type === 'direction') {
     const totalTopics = d.topic_count || d.total || 0;
-    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">包含 ${totalTopics} 个主题</div>`;
-    html += `<button class="node-action-btn" onclick="startDirectionQuizFromGraph('${d.id}')">测评此方向（12题）→</button>`;
+    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">${escHtml(t('node.topics_in', {n: totalTopics}))}</div>`;
+    html += `<button class="node-action-btn" data-action="dir-quiz">${escHtml(t('btn.quiz_dir'))}</button>`;
     if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" onclick="setGraphView('domain'); setTimeout(()=>expandDirection('${d.id}'),50)">查看主题图</button>`;
+      html += `<button class="node-action-btn node-expand-btn" data-action="view-dir-global">${escHtml(t('btn.view_topics'))}</button>`;
     } else {
-      html += `<button class="node-action-btn node-expand-btn" onclick="expandDirection('${d.id}')">查看主题图</button>`;
+      html += `<button class="node-action-btn node-expand-btn" data-action="expand-dir">${escHtml(t('btn.expand_dir'))}</button>`;
     }
   } else if (d.type === 'area') {
     const totalDirs = d.direction_count || 3;
-    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">包含 ${totalDirs} 个方向</div>`;
+    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">${escHtml(t('node.dirs_in', {n: totalDirs}))}</div>`;
     if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" onclick="setGraphView('domain'); setTimeout(()=>expandArea('${d.id}'),50)">浏览此领域 →</button>`;
+      html += `<button class="node-action-btn node-expand-btn" data-action="view-area-global">${escHtml(t('btn.browse_area'))}</button>`;
     } else {
-      html += `<button class="node-action-btn node-expand-btn" onclick="expandArea('${d.id}')">展开方向图</button>`;
+      html += `<button class="node-action-btn node-expand-btn" data-action="expand-area">${escHtml(t('btn.expand_area'))}</button>`;
     }
   }
 
   html += '</div>';
   panel.innerHTML = html;
 
-  // 追加课程探索按钮
-  const escapedName = d.name.replace(/'/g, "\\'");
+  // 按钮事件：通过 data-action 委托，避免 onclick 中拼接 id
+  panel.querySelector('.node-info-card').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    switch (btn.dataset.action) {
+      case 'quiz':             startTopicQuiz(d.id); break;
+      case 'navigate':         navigateToNode('topic', d.id); break;
+      case 'dir-quiz':         startDirectionQuizFromGraph(d.id); break;
+      case 'view-dir-global':  setGraphView('domain'); setTimeout(() => expandDirection(d.id), 50); break;
+      case 'expand-dir':       expandDirection(d.id); break;
+      case 'view-area-global': setGraphView('domain'); setTimeout(() => expandArea(d.id), 50); break;
+      case 'expand-area':      expandArea(d.id); break;
+    }
+  });
+
+  // 课程探索按钮
   const courseBtn = document.createElement('button');
   courseBtn.className = 'btn-course-explore';
-  courseBtn.textContent = '🎓 生成课程搜索提示词';
-  courseBtn.onclick = () => openCourseExplore(d.type, d.id, d.name);
+  courseBtn.textContent = t('btn.course');
+  courseBtn.onclick = () => openCourseExplore(d.type, d.id, entityName(d));
   panel.querySelector('.node-info-card').appendChild(courseBtn);
 }
 
@@ -574,12 +643,23 @@ function updateLayerDots(level) {
 
 function updateBreadcrumb(crumbs) {
   const bc = document.getElementById('graph-breadcrumb');
-  let html = `<span class="crumb" onclick="resetToAreas()">全部大类</span>`;
+  bc.replaceChildren();
+  const root = document.createElement('span');
+  root.className = 'crumb';
+  root.textContent = t('crumb.all_areas');
+  root.addEventListener('click', resetToAreas);
+  bc.appendChild(root);
   crumbs.forEach(c => {
-    html += `<span class="crumb-sep">›</span>`;
-    html += `<span class="crumb" onclick="${c.onclick}">${c.name}</span>`;
+    const sep = document.createElement('span');
+    sep.className = 'crumb-sep';
+    sep.textContent = '›';
+    bc.appendChild(sep);
+    const span = document.createElement('span');
+    span.className = 'crumb';
+    span.textContent = c.name;
+    span.addEventListener('click', c.fn);
+    bc.appendChild(span);
   });
-  bc.innerHTML = html;
 }
 
 // 缩放控制
@@ -641,7 +721,8 @@ function renderGlobalView() {
   State.graphLevel = 'area';
   State.expandedArea = null;
   State.expandedDirection = null;
-  State.graphView = 'global';
+  if (State.graphView !== 'path') State.graphView = 'global';
+  State.activePathStep = null;
   updateLayerDots(1);
   updateBreadcrumb([]);
   clearGraph();
@@ -652,185 +733,166 @@ function renderGlobalView() {
   if (!W || !H) return;
 
   const cx = W / 2, cy = H / 2;
-  const minDim = Math.min(W, H);
 
-  // 三环半径
-  const R1 = minDim * 0.10;   // Area 环（内）
-  const R2 = minDim * 0.28;   // Direction 环（中）
-  const R3 = minDim * 0.46;   // Topic 环（外）
-  const AREA_R_G  = 32;
-  const DIR_R_G   = 17;
-  const TOPIC_R_G = 7;
+  // Node radii for global view (smaller than domain view)
+  const AREA_R_G  = 30;
+  const DIR_R_G   = 14;
+  const TOPIC_R_G = 8;
 
-  const SECTOR = (2 * Math.PI) / 5;    // 每个 Area 占 72°
-  const DIR_SPREAD = SECTOR * 0.72;    // 方向节点展开角度（占扇区72%）
+  // Three concentric rings — fitGraph() handles zoom to fit
+  const R_AREA  = 110;
+  const R_DIR   = 260;
+  const R_TOPIC = 420;
 
-  const allAreas  = State.graphData.nodes.filter(n => n.type === 'area');
-  const allDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
-  const allTopics = State.graphData.nodes.filter(n => n.type === 'topic');
+  const rawAreas  = State.graphData.nodes.filter(n => n.type === 'area');
+  const rawDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
+  const rawTopics = State.graphData.nodes.filter(n => n.type === 'topic');
 
-  // ── 计算 Area 位置 ──────────────────────────────────────────
-  const areaPos = {};
-  const areaNodes = allAreas.map((a, i) => {
-    const angle = (i / allAreas.length) * 2 * Math.PI - Math.PI / 2;
-    const x = cx + R1 * Math.cos(angle);
-    const y = cy + R1 * Math.sin(angle);
-    areaPos[a.id] = { x, y, angle };
-    return { ...a, x, y, _angle: angle };
+  // Count topics per direction and per area (for proportional sector sizing)
+  const topicsPerDir = {};
+  rawTopics.forEach(t => { topicsPerDir[t.direction] = (topicsPerDir[t.direction] || 0) + 1; });
+  const topicsPerArea = {};
+  rawAreas.forEach(a => { topicsPerArea[a.id] = 0; });
+  rawDirs.forEach(d => { topicsPerArea[d.area] = (topicsPerArea[d.area] || 0) + (topicsPerDir[d.id] || 0); });
+  const totalTopics = rawTopics.length || 1;
+
+  // Assign angular sectors to areas (proportional to topic count, starting at top)
+  const TAU = 2 * Math.PI;
+  let angle = -Math.PI / 2;
+  const areaAngles = {};
+  rawAreas.forEach(a => {
+    const n = topicsPerArea[a.id] || 1;
+    const span = (n / totalTopics) * TAU;
+    areaAngles[a.id] = { start: angle, end: angle + span, mid: angle + span / 2 };
+    angle += span;
   });
 
-  // ── 计算 Direction 位置 ─────────────────────────────────────
-  const dirPos = {};
-  const dirNodes = allDirs.map(d => {
-    const ap = areaPos[d.area];
-    if (!ap) return { ...d, x: cx, y: cy, _angle: 0 };
-    const sameDirs = allDirs.filter(x => x.area === d.area);
-    const idx = sameDirs.findIndex(x => x.id === d.id);
-    const total = sameDirs.length;
-    const step = total > 1 ? DIR_SPREAD / (total - 1) : 0;
-    const dAngle = ap.angle - DIR_SPREAD / 2 + idx * step;
-    const x = cx + R2 * Math.cos(dAngle);
-    const y = cy + R2 * Math.sin(dAngle);
-    dirPos[d.id] = { x, y, angle: dAngle };
-    return { ...d, x, y, _angle: dAngle };
+  // Assign sub-sectors to directions within each area (proportional to their topic count)
+  const dirAngles = {};
+  rawAreas.forEach(a => {
+    const dirsInArea = rawDirs.filter(d => d.area === a.id);
+    const { start, end } = areaAngles[a.id];
+    const areaSpan = end - start;
+    const areaTopics = topicsPerArea[a.id] || dirsInArea.length;
+    let dAngle = start;
+    dirsInArea.forEach(d => {
+      const tc = topicsPerDir[d.id] || 1;
+      const span = (tc / areaTopics) * areaSpan;
+      dirAngles[d.id] = { start: dAngle, end: dAngle + span, mid: dAngle + span / 2 };
+      dAngle += span;
+    });
   });
 
-  // ── 计算 Topic 位置 ─────────────────────────────────────────
-  // 每个 direction 分得 DIR_SPREAD/3 的扇区，topics 在其中均分
-  const topicNodes = allTopics.map(t => {
-    const dp = dirPos[t.direction];
-    if (!dp) return { ...t, x: cx, y: cy };
-    const sameTopics = allTopics.filter(x => x.direction === t.direction);
-    const idx = sameTopics.findIndex(x => x.id === t.id);
-    const total = sameTopics.length;
-    const minStep = 0.042;  // 最小角步长（约2.4°），保证间距
-    const maxSpread = DIR_SPREAD / 3 * 0.88;
-    const spread = total > 1 ? Math.min(maxSpread, (total - 1) * minStep) : 0;
-    const step = total > 1 ? spread / (total - 1) : 0;
-    const tAngle = dp.angle - spread / 2 + idx * step;
-    return { ...t, x: cx + R3 * Math.cos(tAngle), y: cy + R3 * Math.sin(tAngle), _angle: tAngle };
+  // Group topics by direction for even distribution within sub-sector
+  const topicsByDir = {};
+  rawTopics.forEach(t => {
+    if (!topicsByDir[t.direction]) topicsByDir[t.direction] = [];
+    topicsByDir[t.direction].push(t);
   });
 
-  // ── 领域扇区背景（饼块样式，最底层）──────────────────────────
-  const terG = g.append('g').attr('class', 'g-territory');
-  areaNodes.forEach(a => {
-    const arcPath = d3.arc()
-      .innerRadius(R1 - AREA_R_G - 2)
-      .outerRadius(R3 + TOPIC_R_G + 16)
-      .startAngle(a._angle - SECTOR / 2)
-      .endAngle(a._angle + SECTOR / 2);
-    terG.append('path')
-      .attr('d', arcPath)
-      .attr('transform', `translate(${cx},${cy})`)
-      .attr('fill', a.color).attr('fill-opacity', 0.045)
-      .attr('stroke', a.color).attr('stroke-width', 1)
-      .attr('stroke-opacity', 0.14).attr('stroke-dasharray', '4,4');
+  // Compute fixed positions
+  const areaNodes = rawAreas.map(a => {
+    const mid = areaAngles[a.id].mid;
+    return { ...a, x: cx + R_AREA * Math.cos(mid), y: cy + R_AREA * Math.sin(mid) };
+  });
+  const dirNodes = rawDirs.map(d => {
+    const mid = (dirAngles[d.id] || { mid: 0 }).mid;
+    return { ...d, x: cx + R_DIR * Math.cos(mid), y: cy + R_DIR * Math.sin(mid) };
+  });
+  const topicNodes = [];
+  rawTopics.forEach(t => {
+    const da = dirAngles[t.direction];
+    if (!da) { topicNodes.push({ ...t, x: cx, y: cy }); return; }
+    const list = topicsByDir[t.direction];
+    const idx  = list.indexOf(t);
+    const n    = list.length;
+    const tAngle = da.start + (idx + 0.5) / n * (da.end - da.start);
+    topicNodes.push({ ...t, x: cx + R_TOPIC * Math.cos(tAngle), y: cy + R_TOPIC * Math.sin(tAngle) });
   });
 
-  // ── 连线层（Dir→Topic 先，再 Area→Dir）──────────────────────
+  State.simulationNodes = [...areaNodes, ...dirNodes, ...topicNodes];
+
+  // Build index maps for link drawing
+  const areaById = Object.fromEntries(areaNodes.map(a => [a.id, a]));
+  const dirById  = Object.fromEntries(dirNodes.map(d => [d.id, d]));
+  const links = [
+    ...dirNodes.map(d   => ({ source: areaById[d.area],       target: d, kind: 'area-dir'  })),
+    ...topicNodes.map(t => ({ source: dirById[t.direction],   target: t, kind: 'dir-topic' })),
+  ].filter(l => l.source && l.target);
+
+  // ── Links ──────────────────────────────────────────────────
   const linkG = g.append('g').attr('class', 'g-links');
+  linkG.selectAll('line').data(links).join('line')
+    .attr('stroke', 'var(--border)')
+    .attr('stroke-opacity', d => d.kind === 'area-dir' ? 0.5 : 0.18)
+    .attr('stroke-width',   d => d.kind === 'area-dir' ? 1.4 : 0.7)
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
 
-  topicNodes.forEach(t => {
-    const dp = dirPos[t.direction];
-    if (!dp) return;
-    linkG.append('line')
-      .attr('x1', dp.x).attr('y1', dp.y)
-      .attr('x2', t.x).attr('y2', t.y)
-      .attr('stroke', 'var(--border)').attr('stroke-width', 0.7)
-      .attr('stroke-opacity', 0.28);
-  });
-
-  dirNodes.forEach(d => {
-    const ap = areaPos[d.area];
-    if (!ap) return;
-    linkG.append('line')
-      .attr('x1', ap.x).attr('y1', ap.y)
-      .attr('x2', d.x).attr('y2', d.y)
-      .attr('stroke', 'var(--border)').attr('stroke-width', 1.2)
-      .attr('stroke-opacity', 0.48);
-  });
-
-  // ── Topic 节点（颜色=掌握状态，无文字，hover 显 tooltip）────
-  const topicG = g.append('g').attr('class', 'g-topics');
-  const topicNodeG = topicG.selectAll('.node-topic-global')
-    .data(topicNodes).join('g')
+  // ── Topic nodes (outermost ring, color = mastery status) ────
+  const topicG  = g.append('g').attr('class', 'g-topics');
+  const topicSel = topicG.selectAll('g').data(topicNodes).join('g')
     .attr('class', 'node-g node-topic-global')
+    .attr('data-id', d => d.id)
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
-  topicNodeG.append('title').text(d => d.name || '');
-
-  topicNodeG.append('circle')
+  topicSel.append('title').text(d => entityName(d) || '');
+  topicSel.append('circle')
     .attr('r', TOPIC_R_G)
     .attr('fill', d => {
       const s = d.status || 'unknown';
-      if (s === 'mastered')   return '#3fb950';
-      if (s === 'learning')   return '#d29922';
-      if (s === 'needs_work') return '#f85149';
+      if (s === 'mastered') return '#3fb950';
+      if (s === 'learning') return '#d29922';
+      if (d.tested)         return '#f85149';
       return '#4A4A6A';
     })
-    .attr('fill-opacity', 0.88)
-    .attr('stroke', d => d.color || '#607D8B')
-    .attr('stroke-width', 1);
+    .attr('fill-opacity', 0.85)
+    .attr('stroke', d => d.color || '#607D8B').attr('stroke-width', 1.2);
 
-  // ── Direction 节点（中环）──────────────────────────────────
-  const dirG = g.append('g').attr('class', 'g-dirs');
-  const dirNodeG = dirG.selectAll('.node-dir')
-    .data(dirNodes).join('g')
+  // ── Direction nodes (middle ring, color = domain color) ─────
+  const dirG   = g.append('g').attr('class', 'g-dirs');
+  const dirSel = dirG.selectAll('g').data(dirNodes).join('g')
     .attr('class', 'node-g node-dir')
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
-  dirNodeG.append('circle')
+  dirSel.append('circle')
     .attr('r', DIR_R_G)
-    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', 0.82)
-    .attr('stroke', d => d.color).attr('stroke-width', 1.5)
+    .attr('fill', d => d.color)
+    .attr('fill-opacity', 0.88)
+    .attr('stroke', d => d.color).attr('stroke-width', 1.8)
     .attr('class', 'node-circle');
-
-  dirNodeG.append('path')
-    .attr('d', d => makeRingPath(d, DIR_R_G))
+  dirSel.append('path').attr('d', d => makeRingPath(d, DIR_R_G))
     .attr('fill', '#3fb950').attr('opacity', 0.9);
+  dirSel.append('text').attr('dy', DIR_R_G + 12)
+    .attr('class', 'node-label').style('font-size', '10px')
+    .text(d => { const nm = entityName(d) || ''; return nm.length > 6 ? nm.slice(0, 5) + '…' : nm; });
 
-  dirNodeG.append('text').attr('dy', '4')
-    .attr('class', 'node-label').style('font-size', '8px')
-    .text(d => { const nm = d.name || ''; return nm.length > 6 ? nm.slice(0, 6) + '…' : nm; });
-
-  // ── Area 节点（内环，最上层）────────────────────────────────
-  const areaG = g.append('g').attr('class', 'g-areas');
-  const areaNodeG = areaG.selectAll('.node-area')
-    .data(areaNodes).join('g')
+  // ── Area nodes (inner ring, color = domain color) ──────────
+  const areaG   = g.append('g').attr('class', 'g-areas');
+  const areaSel = areaG.selectAll('g').data(areaNodes).join('g')
     .attr('class', 'node-g node-area')
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
-  areaNodeG.append('circle')
-    .attr('r', AREA_R_G + 5)
-    .attr('fill', 'none')
-    .attr('stroke', d => d.color).attr('stroke-width', 1)
-    .attr('stroke-opacity', 0.22).attr('stroke-dasharray', '3,3');
-
-  areaNodeG.append('circle')
-    .attr('r', AREA_R_G)
-    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', 0.92)
-    .attr('stroke', d => d.color).attr('stroke-width', 2.5)
+  areaSel.append('circle').attr('r', AREA_R_G + 5)
+    .attr('fill', 'none').attr('stroke', d => d.color)
+    .attr('stroke-width', 1).attr('stroke-opacity', 0.22).attr('stroke-dasharray', '3,3');
+  areaSel.append('circle').attr('r', AREA_R_G)
+    .attr('fill', d => d.color)
+    .attr('fill-opacity', 0.92).attr('stroke', d => d.color).attr('stroke-width', 2.5)
     .attr('class', 'node-circle');
-
-  areaNodeG.append('path')
-    .attr('d', d => makeRingPath(d, AREA_R_G + 1))
+  areaSel.append('path').attr('d', d => makeRingPath(d, AREA_R_G + 1))
     .attr('fill', '#3fb950').attr('opacity', 0.9);
-
-  areaNodeG.append('text').attr('dy', '-4')
+  areaSel.append('text').attr('dy', '-4')
     .attr('class', 'node-label node-label-area').style('font-size', '15px')
     .text(d => d.icon || '');
-
-  areaNodeG.append('text').attr('dy', '13')
-    .attr('class', 'node-label node-label-area')
-    .text(d => d.name);
+  areaSel.append('text').attr('dy', '13')
+    .attr('class', 'node-label node-label-area').text(d => entityName(d));
 
   fitGraph();
 }
@@ -846,20 +908,32 @@ function setGraphView(view) {
   if (pb) pb.classList.toggle('active', view === 'path');
 
   if (view === 'path') {
-    // 路径视图：不清空图谱，只切换侧栏内容
+    // 路径视图：图谱显示全局总览（若尚未渲染则先渲染），侧栏显示路径
     document.querySelector('.graph-legend').classList.add('hidden');
     document.getElementById('node-info-panel').classList.add('hidden');
     document.getElementById('path-panel').classList.remove('hidden');
+    if (gb) gb.classList.remove('active');
+    if (db) db.classList.remove('active');
+    if (pb) pb.classList.add('active');
+    // 仅在没有全局仿真数据时才重新渲染
+    if (!State.simulationNodes) {
+      renderGlobalView();
+      State.graphView = 'path';
+    }
     renderPathPanel();
   } else {
-    // 切回图谱视图：恢复侧栏
+    // 切回图谱视图：恢复侧栏，清除高亮
     document.querySelector('.graph-legend').classList.remove('hidden');
     document.getElementById('node-info-panel').classList.remove('hidden');
     document.getElementById('path-panel').classList.add('hidden');
+    g.selectAll('\.path-highlight').remove();
+    State.activePathStep = null;
 
     if (view === 'global') {
+      State.simulationNodes = null;
       renderGlobalView();
     } else {
+      State.simulationNodes = null;
       State.expandedArea = null;
       State.expandedDirection = null;
       renderAreaLevel();
@@ -875,60 +949,133 @@ function renderPathPanel() {
   const path = LEARNING_PATHS[State.activePath];
   if (!path || !State.graphData) return;
 
-  const metaEl = document.getElementById('path-meta');
-  if (metaEl) metaEl.textContent = path.desc;
+  // Update intent button labels
+  const ab = document.getElementById('btn-apply-path');
+  const ub = document.getElementById('btn-understand-path');
+  if (ab) ab.textContent = LEARNING_PATHS.apply?.label_en && getLang() === 'en'
+    ? LEARNING_PATHS.apply.label_en : (LEARNING_PATHS.apply?.label || t('path.apply'));
+  if (ub) ub.textContent = LEARNING_PATHS.understand?.label_en && getLang() === 'en'
+    ? LEARNING_PATHS.understand.label_en : (LEARNING_PATHS.understand?.label || t('path.understand'));
 
+  const metaEl = document.getElementById('path-meta');
   const allTopics = State.graphData.nodes.filter(n => n.type === 'topic');
   const stepsEl = document.getElementById('path-steps');
   if (!stepsEl) return;
 
   const masteredCount = path.steps.filter(id => {
-    const t = allTopics.find(n => n.id === id);
-    return t && t.status === 'mastered';
+    const tn = allTopics.find(n => n.id === id);
+    return tn && tn.status === 'mastered';
   }).length;
 
-  stepsEl.innerHTML = path.steps.map((topicId, i) => {
-    const t = allTopics.find(n => n.id === topicId);
-    const name = t ? t.name : topicId;
-    const status = t ? (t.status || 'unknown') : 'unknown';
-    const tested = t ? t.tested : false;
+  stepsEl.innerHTML = '';
+  path.steps.forEach((topicId, i) => {
+    const tn = allTopics.find(n => n.id === topicId);
+    const name = tn ? entityName(tn) : topicId;
+    const status = tn ? (tn.status || 'unknown') : 'unknown';
+    const tested = tn ? tn.tested : false;
     const isMastered = status === 'mastered';
+    const isActive = topicId === State.activePathStep;
 
     let dotColor = '#4A4A6A';
-    let dotBorder = t ? (t.color || '#607D8B') : '#607D8B';
-    if (status === 'mastered')   { dotColor = '#3fb950'; dotBorder = '#3fb950'; }
+    let dotBorder = tn ? (tn.color || '#607D8B') : '#607D8B';
+    if (status === 'mastered')        { dotColor = '#3fb950'; dotBorder = '#3fb950'; }
     else if (status === 'learning')   { dotColor = '#d29922'; dotBorder = '#d29922'; }
     else if (status === 'needs_work') { dotColor = '#f85149'; dotBorder = '#f85149'; }
 
-    const numClass = isMastered ? 'path-step-num mastered' : 'path-step-num';
-    const statusLabel = getStatusLabel(status, tested);
-
-    return `
-      <div class="path-step" onclick="navigateToNode('topic','${topicId}')">
-        <div class="${numClass}">${i + 1}</div>
-        <div class="path-step-dot" style="background:${dotColor};border-color:${dotBorder}"></div>
-        <div class="path-step-name">${name}</div>
-        <div class="path-step-status">${statusLabel}</div>
-      </div>
+    const step = document.createElement('div');
+    step.className = 'path-step' + (isActive ? ' active' : '');
+    step.dataset.id = topicId;
+    step.innerHTML = `
+      <div class="${isMastered ? 'path-step-num mastered' : 'path-step-num'}">${i + 1}</div>
+      <div class="path-step-dot" style="background:${dotColor};border-color:${dotBorder}"></div>
+      <div class="path-step-name">${escHtml(name)}</div>
+      <div class="path-step-status">${escHtml(getStatusLabel(status, tested))}</div>
     `;
-  }).join('');
+    step.addEventListener('click', () => highlightInGlobal(topicId));
+    stepsEl.appendChild(step);
+  });
 
   // 进度摘要
   const pct = Math.round(masteredCount / path.steps.length * 100);
   if (metaEl) {
+    const desc = (getLang() === 'en' && path.desc_en) ? path.desc_en : (path.desc || '');
     metaEl.innerHTML = `<div class="path-progress-bar"><div class="path-progress-fill" style="width:${pct}%"></div></div>
-      <div class="path-progress-label">${path.desc}</div>
-      <div class="path-mastered-count">已掌握 ${masteredCount} / ${path.steps.length}</div>`;
+      <div class="path-progress-label">${escHtml(desc)}</div>
+      <div class="path-mastered-count">${escHtml(t('path.mastered_of', {n: masteredCount, total: path.steps.length}))}</div>`;
   }
 }
 
 function setActivePath(intent) {
   State.activePath = intent;
+  State.activePathStep = null;
   const ab = document.getElementById('btn-apply-path');
   const ub = document.getElementById('btn-understand-path');
   if (ab) ab.classList.toggle('active', intent === 'apply');
   if (ub) ub.classList.toggle('active', intent === 'understand');
+  g.selectAll('\.path-highlight').remove();
+  const detailEl = document.getElementById('path-node-detail');
+  if (detailEl) detailEl.innerHTML = '';
   renderPathPanel();
+}
+
+// 在全局图谱中高亮路径步骤节点，并在侧栏展示详情
+function highlightInGlobal(topicId) {
+  State.activePathStep = topicId;
+
+  // 若当前图谱不是全局总览，先切换
+  if (State.graphView !== 'global' && State.graphView !== 'path') {
+    renderGlobalView();
+    State.graphView = 'path';
+    setTimeout(() => doHighlight(topicId), 1100);
+    return;
+  }
+  doHighlight(topicId);
+}
+
+function doHighlight(topicId) {
+  // 更新步骤列表的 active 状态
+  document.querySelectorAll('.path-step').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === topicId);
+  });
+
+  // 把高亮圆环附加在节点的 <g> 内部（随仿真移动）
+  g.selectAll('.path-highlight').remove();
+  const nodeG = g.select(`[data-id="${topicId}"]`);
+  if (!nodeG.empty()) {
+    nodeG.append('circle')
+      .attr('class', 'path-highlight')
+      .attr('r', 16)
+      .attr('fill', 'none')
+      .attr('stroke', '#FFD700')
+      .attr('stroke-width', 2.5)
+      .attr('pointer-events', 'none')
+      .attr('opacity', 0)
+      .transition().duration(280).attr('opacity', 1);
+  }
+
+  // 侧栏显示节点详情
+  const topicNode = State.graphData?.nodes.find(n => n.id === topicId && n.type === 'topic');
+  if (topicNode) showPathNodeDetail(topicNode);
+}
+
+function showPathNodeDetail(d) {
+  const el = document.getElementById('path-node-detail');
+  if (!el) return;
+  const status = d.status || 'unknown';
+  const statusClass = getStatusClass(status, d.tested);
+  const statusLabel = getStatusLabel(status, d.tested);
+  const displayName = entityName(d);
+  const displayNameAlt = getLang() === 'en' ? (d.name || '') : (d.name_en || '');
+  el.innerHTML = `
+    <div class="path-detail-card">
+      <div class="path-detail-name">${escHtml(displayName)}</div>
+      ${displayNameAlt ? `<div class="path-detail-en">${escHtml(displayNameAlt)}</div>` : ''}
+      <span class="node-status-badge ${statusClass}">${escHtml(statusLabel)}</span>
+      ${d.description ? `<div class="path-detail-desc">${escHtml(d.description)}</div>` : ''}
+      <button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_topic'))}</button>
+    </div>
+  `;
+  el.querySelector('[data-action="quiz"]').addEventListener('click', () => startTopicQuiz(d.id));
 }
 
 // ============================================================
@@ -954,17 +1101,20 @@ function renderDirectionsGrid() {
     const pct = m.total > 0 ? Math.round(m.mastered / m.total * 100) : 0;
     const pctColor = pct >= 80 ? '#3fb950' : pct >= 40 ? '#d29922' : color;
     return `
-      <div class="direction-card" onclick="startDirectionQuiz('${d.id}')">
+      <div class="direction-card" data-id="${escHtml(d.id)}">
         <div class="direction-card-top">
           <div class="direction-color-dot" style="background:${color}"></div>
-          <div class="direction-card-name">${d.name}</div>
+          <div class="direction-card-name">${escHtml(getLang() === 'en' && d.name_en ? d.name_en : d.name)}</div>
           ${pct > 0 ? `<span class="dir-card-pct" style="color:${pctColor}">${pct}%</span>` : ''}
         </div>
-        <div class="direction-card-meta">${m.total} 个主题 · ${m.total * 3} 道题</div>
+        <div class="direction-card-meta">${t('dir.topics_n', {n: m.total})} · ${t('dir.questions_n', {n: m.total * 3})}</div>
         ${pct > 0 ? `<div class="dir-card-bar"><div class="dir-card-bar-fill" style="width:${pct}%;background:${pctColor}"></div></div>` : ''}
       </div>
     `;
   }).join('');
+  grid.querySelectorAll('.direction-card').forEach(card => {
+    card.addEventListener('click', () => startDirectionQuiz(card.dataset.id));
+  });
 }
 
 // 全局诊断
@@ -977,20 +1127,20 @@ async function startDiagnostic() {
   hide('direction-result-view');
 
   try {
-    const data = await fetch('/api/diagnostic').then(r => r.json());
+    const data = await fetchWithTimeout('/api/diagnostic').then(r => r.json());
     State.quizQuestions = data.questions || [];
     State.quizIndex = 0;
     State.quizAnswers = [];
     State.answeredCurrent = false;
 
-    document.getElementById('quiz-flow-title').textContent = '全局诊断';
+    document.getElementById('quiz-flow-title').textContent = getLang() === 'en' ? 'Global Diagnostic' : '全局诊断';
     document.getElementById('quiz-flow-subtitle').textContent =
-      `${data.total} 道题 · 覆盖全部 15 个方向`;
+      `${data.total} ${getLang() === 'en' ? 'questions · covering all 15 directions' : '道题 · 覆盖全部 15 个方向'}`;
 
     show('quiz-flow-view');
     renderCurrentQuestion();
   } catch (e) {
-    alert('加载题目失败: ' + e.message);
+    alert(t('quiz.load_failed', {msg: e.message}));
   }
 }
 
@@ -1006,20 +1156,22 @@ async function startDirectionQuiz(dirId) {
   const dirName = dir?.name || dirId;
 
   try {
-    const data = await fetch(`/api/direction/${dirId}/quiz`).then(r => r.json());
+    const data = await fetchWithTimeout(`/api/direction/${dirId}/quiz`).then(r => r.json());
     State.quizQuestions = data.questions || [];
     State.quizIndex = 0;
     State.quizAnswers = [];
     State.answeredCurrent = false;
 
-    document.getElementById('quiz-flow-title').textContent = dirName;
-    document.getElementById('quiz-flow-subtitle').textContent =
-      `${data.total_questions} 道题 · ${data.topics?.length || 4} 个主题`;
+    const dirNameDisplay = getLang() === 'en' && dir?.name_en ? dir.name_en : dirName;
+    document.getElementById('quiz-flow-title').textContent = dirNameDisplay;
+    document.getElementById('quiz-flow-subtitle').textContent = getLang() === 'en'
+      ? `${data.total_questions} questions · ${data.topics?.length || 4} topics`
+      : `${data.total_questions} 道题 · ${data.topics?.length || 4} 个主题`;
 
     show('quiz-flow-view');
     renderCurrentQuestion();
   } catch (e) {
-    alert('加载题目失败: ' + e.message);
+    alert(t('quiz.load_failed', {msg: e.message}));
   }
 }
 
@@ -1042,24 +1194,24 @@ function renderCurrentQuestion() {
   const area = document.getElementById('quiz-question-area');
   area.innerHTML = `
     <div class="question-card">
-      <div class="question-text">${q.question}</div>
+      <div class="question-text">${escHtml(q.question)}</div>
       <div class="options-list">
         ${(q.options || []).map((opt, i) => `
           <button class="option-btn" data-idx="${i}" onclick="selectOption(${i})">
-            <span class="option-letter">${opt.letter}.</span>
-            <span>${opt.text}</span>
+            <span class="option-letter">${escHtml(opt.letter)}.</span>
+            <span>${escHtml(opt.text)}</span>
           </button>
         `).join('')}
       </div>
       <div class="explanation-box hidden" id="explanation-box">
-        ${q.explanation || ''}
+        ${escHtml(q.explanation || '')}
       </div>
     </div>
   `;
 
   State.answeredCurrent = false;
   const nextBtn = document.getElementById('btn-next-question');
-  nextBtn.textContent = State.quizIndex === total - 1 ? '提交结果 ✓' : '下一题 →';
+  nextBtn.textContent = State.quizIndex === total - 1 ? t('btn.submit') : t('btn.next');
   nextBtn.disabled = true;
   nextBtn.style.opacity = '0.5';
 }
@@ -1079,7 +1231,7 @@ async function selectOption(idx) {
   // 后端验证答案（防止前端伪造）
   let isCorrect = false, correctIdx = -1;
   try {
-    const res = await fetch('/api/answer-check', {
+    const res = await fetchWithTimeout('/api/answer-check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1090,13 +1242,20 @@ async function selectOption(idx) {
     }).then(r => r.json());
     isCorrect = res.is_correct;
     correctIdx = res.correct_index;
-    // 用后端返回的解析覆盖前端（若有）
     if (res.explanation) {
       const expBox = document.getElementById('explanation-box');
       if (expBox) expBox.textContent = res.explanation;
     }
   } catch (e) {
-    console.warn('answer-check failed, falling back to client', e);
+    // 后端校验失败时不继续：重置答题状态，提示用户
+    State.answeredCurrent = false;
+    document.querySelectorAll('.option-btn').forEach(btn => {
+      btn.style.cursor = 'pointer';
+      btn.onclick = () => selectOption(+btn.dataset.idx);
+    });
+    const expBox = document.getElementById('explanation-box');
+    if (expBox) { expBox.textContent = t('quiz.check_failed'); expBox.classList.remove('hidden'); }
+    return;
   }
 
   // 记录答案（is_correct 以服务端为准）
@@ -1159,7 +1318,7 @@ async function finishQuiz() {
 
 async function submitDiagnostic() {
   try {
-    const result = await fetch('/api/diagnostic/submit', {
+    const result = await fetchWithTimeout('/api/diagnostic/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers: State.quizAnswers })
@@ -1168,14 +1327,14 @@ async function submitDiagnostic() {
     renderDiagnosticResult(result);
     show('quiz-result-view');
   } catch (e) {
-    alert('提交失败: ' + e.message);
+    alert(t('quiz.submit_failed', {msg: e.message}));
     show('quiz-home-view');
   }
 }
 
 async function submitDirectionQuiz() {
   try {
-    const result = await fetch(`/api/direction/${State.currentDirectionId}/quiz/submit`, {
+    const result = await fetchWithTimeout(`/api/direction/${State.currentDirectionId}/quiz/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers: State.quizAnswers })
@@ -1184,7 +1343,7 @@ async function submitDirectionQuiz() {
     renderDirectionResult(result);
     show('direction-result-view');
   } catch (e) {
-    alert('提交失败: ' + e.message);
+    alert(t('quiz.submit_failed', {msg: e.message}));
     show('quiz-home-view');
   }
 }
@@ -1195,7 +1354,7 @@ function renderDiagnosticResult(result) {
 
   document.getElementById('result-score-big').textContent = pct + '%';
   document.getElementById('result-score-label').textContent =
-    `正确 ${result.total_correct} / ${result.total_questions} 题`;
+    t('result.correct_of', {n: result.total_correct, total: result.total_questions});
 
   // 各方向得分列表
   const scoresList = document.getElementById('direction-scores-list');
@@ -1204,9 +1363,10 @@ function renderDiagnosticResult(result) {
 
   scoresList.innerHTML = scores.map(([did, info]) => {
     const color = scoreColor(info.percent);
+    const displayDirName = getLang() === 'en' && info.name_en ? info.name_en : info.name;
     return `
       <div class="score-row">
-        <span class="score-name" title="${info.name}">${info.name}</span>
+        <span class="score-name" title="${escHtml(displayDirName)}">${escHtml(displayDirName)}</span>
         <div class="score-bar-wrap">
           <div class="score-bar-fill" style="width:${info.percent}%;background:${color}"></div>
         </div>
@@ -1228,8 +1388,11 @@ function renderDiagnosticResult(result) {
   } else {
     weakSection.style.display = 'block';
     weakTags.innerHTML = weakDirs.map(w =>
-      `<span class="weak-tag" onclick="startDirectionQuiz('${w.direction_id}')">${w.name} (${w.percent}%)</span>`
+      `<span class="weak-tag" data-id="${escHtml(w.direction_id)}">${escHtml(w.name)} (${w.percent}%)</span>`
     ).join('');
+    weakTags.querySelectorAll('.weak-tag').forEach(tag => {
+      tag.addEventListener('click', () => startDirectionQuiz(tag.dataset.id));
+    });
   }
 
   // 推荐下一步
@@ -1287,19 +1450,24 @@ function renderNextSteps(result) {
 
   section.style.display = 'block';
   list.innerHTML = steps.map((s, i) => {
-    const t = s.topic;
-    const dirName = (State.directions || []).find(d => d.id === t.direction)?.name || t.direction;
+    const tn = s.topic;
+    const dir = (State.directions || []).find(d => d.id === tn.direction);
+    const dirName = getLang() === 'en' && dir?.name_en ? dir.name_en : (dir?.name || tn.direction);
+    const topicName = getLang() === 'en' && tn.name_en ? tn.name_en : tn.name;
     return `
-      <div class="next-step-item" onclick="goToTopicFromResult('${t.id}')">
+      <div class="next-step-item" data-id="${escHtml(tn.id)}">
         <div class="next-step-num">${i + 1}</div>
         <div class="next-step-content">
-          <div class="next-step-title">${t.name}</div>
-          <div class="next-step-meta">${dirName} · ${s.reason}</div>
+          <div class="next-step-title">${escHtml(topicName)}</div>
+          <div class="next-step-meta">${escHtml(dirName)} · ${escHtml(s.reason)}</div>
         </div>
-        <span class="next-step-action">查看 →</span>
+        <span class="next-step-action">${escHtml(t('result.next_view'))}</span>
       </div>
     `;
   }).join('');
+  list.querySelectorAll('.next-step-item').forEach(item => {
+    item.addEventListener('click', () => goToTopicFromResult(item.dataset.id));
+  });
 }
 
 function goToTopicFromResult(topicId) {
@@ -1310,24 +1478,25 @@ function goToTopicFromResult(topicId) {
 
 function renderDirectionResult(result) {
   const dir = State.directions.find(d => d.id === result.direction_id);
-  document.getElementById('dir-result-title').textContent = (dir?.name || result.direction_id) + ' 测评结果';
+  const dirLabel = getLang() === 'en' && dir?.name_en ? dir.name_en : (dir?.name || result.direction_id);
+  document.getElementById('dir-result-title').textContent = dirLabel + (getLang() === 'en' ? ' Results' : ' 测评结果');
   document.getElementById('dir-result-score').textContent = result.score_percent + '%';
   document.getElementById('dir-result-label').textContent =
-    `正确 ${result.total_correct} / ${result.total_questions} 题`;
+    t('result.correct_of', {n: result.total_correct, total: result.total_questions});
 
   const topicResults = document.getElementById('dir-topic-results');
-  topicResults.innerHTML = (result.topic_results || []).map(t => {
-    const color = scoreColor(t.percent);
-    const wasTested = (t.total || 0) > 0; // 本次测评过的 topic，unknown 显示"需要加强"
-    const statusLabel = getStatusLabel(t.new_status, wasTested);
+  topicResults.innerHTML = (result.topic_results || []).map(tr => {
+    const color = scoreColor(tr.percent);
+    const wasTested = (tr.total || 0) > 0;
+    const statusLabel = getStatusLabel(tr.new_status, wasTested);
     return `
       <div class="score-row">
-        <span class="score-name" title="${t.topic_name}">${t.topic_name}</span>
+        <span class="score-name" title="${escHtml(tr.topic_name)}">${escHtml(tr.topic_name)}</span>
         <div class="score-bar-wrap">
-          <div class="score-bar-fill" style="width:${t.percent}%;background:${color}"></div>
+          <div class="score-bar-fill" style="width:${tr.percent}%;background:${color}"></div>
         </div>
-        <span class="score-pct" style="color:${color}">${t.percent}%</span>
-        <span class="node-status-badge ${getStatusClass(t.new_status, wasTested)}" style="font-size:10px;padding:2px 8px">${statusLabel}</span>
+        <span class="score-pct" style="color:${color}">${tr.percent}%</span>
+        <span class="node-status-badge ${getStatusClass(tr.new_status, wasTested)}" style="font-size:10px;padding:2px 8px">${escHtml(statusLabel)}</span>
       </div>
     `;
   }).join('');
@@ -1461,7 +1630,7 @@ function drawRadar(selector, data, width, height) {
 
 async function loadProgress() {
   try {
-    const p = await fetch('/api/progress').then(r => r.json());
+    const p = await fetchWithTimeout('/api/progress').then(r => r.json());
 
     document.getElementById('stat-total').textContent = p.total;
     document.getElementById('stat-mastered').textContent = p.mastered;
@@ -1479,7 +1648,7 @@ async function loadProgress() {
       const dirBars = Object.entries(aData.directions || {}).map(([did, dData]) => {
         return `
           <div class="dir-bar-row">
-            <span class="dir-bar-name" title="${dData.name}">${dData.name}</span>
+            <span class="dir-bar-name" title="${escHtml(dData.name)}">${escHtml(dData.name_en && getLang() === 'en' ? dData.name_en : dData.name)}</span>
             <div class="dir-bar-track">
               <div class="dir-bar-fill" style="width:${dData.percent}%;background:${fillColor}"></div>
             </div>
@@ -1490,8 +1659,8 @@ async function loadProgress() {
       return `
         <div class="area-progress-item">
           <div class="area-progress-header">
-            <span class="area-icon">${aData.icon || ''}</span>
-            <span class="area-name">${aData.name}</span>
+            <span class="area-icon">${escHtml(aData.icon || '')}</span>
+            <span class="area-name">${escHtml(aData.name_en && getLang() === 'en' ? aData.name_en : aData.name)}</span>
             <span class="area-pct">${aData.percent}%</span>
           </div>
           <div class="area-bar">
@@ -1541,18 +1710,18 @@ async function runSearch(q) {
   body.innerHTML = '<div class="search-empty">搜索中…</div>';
 
   try {
-    const data = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+    const data = await fetchWithTimeout(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
     const results = data.results || [];
     countEl.textContent = results.length > 0
-      ? `找到 ${results.length} 个相关知识点`
-      : `未找到与「${q}」相关的结果`;
+      ? t('search.found', {n: results.length})
+      : t('search.not_found', {q});
 
     if (results.length === 0) {
       body.innerHTML = `
         <div class="search-empty">
           <div style="font-size:28px;margin-bottom:10px">🔍</div>
-          <div>未找到「${q}」相关的知识点</div>
-          <div style="margin-top:6px;font-size:11px">试试：RAG、工程实践、fine-tuning、Agent…</div>
+          <div>${escHtml(t('search.not_found', {q}))}</div>
+          <div style="margin-top:6px;font-size:11px">${escHtml(t('search.no_result_hint'))}</div>
         </div>`;
       return;
     }
@@ -1569,23 +1738,27 @@ async function runSearch(q) {
       });
     });
   } catch (e) {
-    body.innerHTML = `<div class="search-empty">搜索失败: ${e.message}</div>`;
+    body.innerHTML = `<div class="search-empty">${escHtml(t('search.error', {msg: e.message}))}</div>`;
   }
 }
 
 function renderSearchResult(r) {
-  const typeLabel = { area: '大类', direction: '方向', topic: '主题' }[r.type] || r.type;
-  const badgeClass = { area: 'badge-area', direction: 'badge-direction', topic: 'badge-topic' }[r.type];
+  const typeLabel = t('type.' + r.type) || r.type;
+  const badgeClass = { area: 'badge-area', direction: 'badge-direction', topic: 'badge-topic' }[r.type] || '';
 
+  const displayName = (getLang() === 'en' && r.name_en) ? r.name_en : r.name;
+  const displayNameAlt = (getLang() === 'en') ? r.name : (r.name_en || '');
   let path = '';
   if (r.type === 'topic') {
-    path = `${r.area_name} › ${r.direction_name}`;
+    const aName = (getLang() === 'en' && r.area_name_en) ? r.area_name_en : r.area_name;
+    const dName = (getLang() === 'en' && r.direction_name_en) ? r.direction_name_en : r.direction_name;
+    path = `${escHtml(aName)} › ${escHtml(dName)}`;
   } else if (r.type === 'direction') {
-    path = r.area_name;
+    path = escHtml((getLang() === 'en' && r.area_name_en) ? r.area_name_en : r.area_name);
   }
 
   const tags = (r.tags || []).slice(0, 4).map(t =>
-    `<span class="search-tag">${t}</span>`
+    `<span class="search-tag">${escHtml(t)}</span>`
   ).join('');
 
   const dotColor = r.status === 'mastered' ? '#3fb950'
@@ -1596,12 +1769,12 @@ function renderSearchResult(r) {
     : '';
 
   return `
-    <div class="search-result-item" data-type="${r.type}" data-id="${r.id}">
-      <span class="search-result-type-badge ${badgeClass}">${typeLabel}</span>
+    <div class="search-result-item" data-type="${escHtml(r.type)}" data-id="${escHtml(r.id)}">
+      <span class="search-result-type-badge ${badgeClass}">${escHtml(typeLabel)}</span>
       <div class="search-result-content">
-        <div class="search-result-name">${statusDot}${r.name}${r.name_en ? ` <span style="color:var(--text-muted);font-weight:400;font-size:11px">${r.name_en}</span>` : ''}</div>
+        <div class="search-result-name">${statusDot}${escHtml(displayName)}${displayNameAlt ? ` <span style="color:var(--text-muted);font-weight:400;font-size:11px">${escHtml(displayNameAlt)}</span>` : ''}</div>
         ${path ? `<div class="search-result-path">${path}</div>` : ''}
-        ${r.description ? `<div class="search-result-desc">${r.description}</div>` : ''}
+        ${r.description ? `<div class="search-result-desc">${escHtml(r.description)}</div>` : ''}
         ${tags ? `<div class="search-result-tags">${tags}</div>` : ''}
       </div>
     </div>`;
@@ -1680,7 +1853,7 @@ async function openCourseExplore(nodeType, nodeId, nodeName) {
   overlay.classList.remove('hidden');
 
   try {
-    const data = await fetch(`/api/course-prompt/${nodeType}/${nodeId}`).then(r => r.json());
+    const data = await fetchWithTimeout(`/api/course-prompt/${nodeType}/${nodeId}`).then(r => r.json());
     promptEl.textContent = data.prompt || '无法生成提示词';
   } catch (e) {
     promptEl.textContent = `加载失败: ${e.message}`;

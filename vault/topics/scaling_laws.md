@@ -5,7 +5,7 @@ name_en: "Scaling Laws"
 type: "topic"
 level: 3
 area: "llm"
-direction: "llm_inference"
+direction: "llm_training"
 prerequisites: ["llm_pretraining"]
 difficulty: 4
 importance: 4
