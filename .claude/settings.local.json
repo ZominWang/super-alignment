@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3 *)",
-      "Bash(chmod +x /Users/zomin/Documents/Personal/AI/LLM_Agent_Courses/knowledge_graph/run.sh)"
-    ]
-  }
-}
