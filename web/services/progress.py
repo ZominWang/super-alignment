@@ -49,13 +49,19 @@ def get_progress() -> Dict[str, Any]:
             d_lea = dt_statuses.count('learning')
             d_nw  = dt_statuses.count('needs_work')
             dir_stats[did] = {
-                'name': d.get('name'), 'color': area.get('color'),
+                'name': d.get('name'), 'name_en': d.get('name_en', ''), 'color': area.get('color'),
                 'total': d_tot, 'mastered': d_mas, 'learning': d_lea,
                 'needs_work': d_nw, 'unknown': d_tot - d_mas - d_lea - d_nw,
                 'percent': round(d_mas / d_tot * 100) if d_tot > 0 else 0,
+                'topics': [
+                    {'id': t.get('id'), 'name': t.get('name'), 'name_en': t.get('name_en', ''),
+                     'status': _effective_status(t)}
+                    for t in dt
+                ],
             }
         area_stats[aid] = {
-            'name': area.get('name'), 'icon': area.get('icon', ''), 'color': area.get('color'),
+            'name': area.get('name'), 'name_en': area.get('name_en', ''),
+            'icon': area.get('icon', ''), 'color': area.get('color'),
             'total': a_total, 'mastered': a_mastered, 'learning': a_learning,
             'needs_work': a_needs, 'unknown': a_total - a_mastered - a_learning - a_needs,
             'percent': round(a_mastered / a_total * 100) if a_total > 0 else 0,

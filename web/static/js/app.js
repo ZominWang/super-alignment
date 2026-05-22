@@ -13,6 +13,7 @@ if (typeof onLangChange === 'function') {
     if (typeof renderPathPanel      === 'function' && State.graphView === 'path') renderPathPanel();
     if (typeof renderDirPanel       === 'function' && State.graphView === 'dir')  renderDirPanel();
     if (typeof updateTopbarBadge    === 'function') updateTopbarBadge();
+    if (State._lastProgressData) renderProgressHeatmap(State._lastProgressData);
     // Re-render quiz result views if visible
     if (State._lastDiagnosticResult && !document.getElementById('quiz-result-view').classList.contains('hidden')) {
       renderDiagnosticResult(State._lastDiagnosticResult);
@@ -365,6 +366,7 @@ function renderAreaLevel() {
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); expandArea(d.id); });
 
+  node.append('title').text(d => entityName(d) || '');
   node.append('circle')
     .attr('r', AREA_R)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
@@ -434,6 +436,7 @@ function expandArea(areaId) {
       if (d.type === 'direction') expandDirection(d.id);
     });
 
+  node.append('title').text(d => entityName(d) || '');
   node.append('circle')
     .attr('r', d => d.type === 'area' ? AREA_R : DIR_R)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
@@ -523,6 +526,7 @@ function expandDirection(dirId) {
       showNodeInfo(d);
     });
 
+  node.append('title').text(d => entityName(d) || '');
   node.append('circle')
     .attr('r', d => d.type === 'direction' ? DIR_R : (5 + (d.importance || 3) * 2))
     .attr('fill', d => {
@@ -2153,10 +2157,50 @@ async function loadProgress() {
       `;
     }).join('');
 
+    State._lastProgressData = p;
+    renderProgressHeatmap(p);
     updateTopbarBadge();
   } catch (e) {
     console.error('Load progress error:', e);
   }
+}
+
+function renderProgressHeatmap(p) {
+  const container = document.getElementById('progress-heatmap');
+  if (!container) return;
+  const statusColor = { mastered: '#3fb950', learning: '#d29922', needs_work: '#f85149', unknown: '#4a5568' };
+  const lang = getLang();
+  let html = '';
+  Object.entries(p.areas || {}).forEach(([aid, aData]) => {
+    const aName = (lang === 'en' && aData.name_en) ? aData.name_en : aData.name;
+    html += `<div class="hm-area">
+      <div class="hm-area-header">
+        <span class="hm-area-icon">${escHtml(aData.icon || '')}</span>
+        <span class="hm-area-name">${escHtml(aName)}</span>
+        <span class="hm-area-stats">${aData.mastered}/${aData.total}</span>
+      </div>`;
+    Object.entries(aData.directions || {}).forEach(([did, dData]) => {
+      const dName = (lang === 'en' && dData.name_en) ? dData.name_en : dData.name;
+      const dots = (dData.topics || []).map(tp => {
+        const tName = (lang === 'en' && tp.name_en) ? tp.name_en : tp.name;
+        const col = statusColor[tp.status] || statusColor.unknown;
+        return `<span class="hm-dot" style="background:${col}" title="${escHtml(tName)}" data-topic-id="${escHtml(tp.id)}"></span>`;
+      }).join('');
+      html += `<div class="hm-dir-row">
+        <span class="hm-dir-name" title="${escHtml(dName)}">${escHtml(dName)}</span>
+        <span class="hm-dir-count">${dData.mastered}/${dData.total}</span>
+        <span class="hm-dots">${dots}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.hm-dot[data-topic-id]').forEach(dot => {
+    dot.addEventListener('click', () => {
+      switchToTab('graph');
+      setTimeout(() => navigateToNode('topic', dot.dataset.topicId), 200);
+    });
+  });
 }
 
 // ============================================================

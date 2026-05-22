@@ -180,9 +180,8 @@
         <div class="diagnostic-card">
           <h3 data-i18n="quiz.diagnostic.title">🔍 全局诊断</h3>
           <p data-i18n="quiz.diagnostic.desc">30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平<br>完成后获得雷达图分析 + 个性化推荐</p>
-          <div class="diagnostic-notice">
-            <span class="diagnostic-notice-icon">💡</span>
-            题目涵盖技术深度，部分题目偏难属正常现象。<strong>诊断的目的是找到你的起点</strong>，不是评判好坏。不会的题目直接跳过即可。
+          <div class="diagnostic-notice" data-i18n-html="quiz.diagnostic.notice">
+            <strong>诊断不是考试。</strong>不会的题帮助系统找到你的学习起点，而不是评判你的水平。题目涵盖技术深度，部分偏难属正常现象。不确定可点击"跳过"继续。
           </div>
           <button class="btn-primary" id="btn-start-diagnostic" data-i18n="btn.start_diagnostic">开始全局诊断 →</button>
         </div>
@@ -301,6 +300,11 @@
       <div class="progress-next-steps" id="progress-next-steps" style="display:none">
         <h3 data-i18n="progress.next_title">🚀 下一步推荐</h3>
         <div class="next-steps-chips" id="progress-next-chips"></div>
+      </div>
+
+      <div class="progress-heatmap-section" id="progress-heatmap-section">
+        <h3 data-i18n="progress.heatmap_title">知识体系总览</h3>
+        <div class="progress-heatmap" id="progress-heatmap"></div>
       </div>
 
       <div class="progress-layout">

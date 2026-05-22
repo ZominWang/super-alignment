@@ -82,7 +82,7 @@ const TRANSLATIONS = {
     'quiz.subtitle':      '通过测评了解你的 AI 知识现状，定向提升薄弱领域',
     'quiz.diagnostic.title': '🔍 全局诊断',
     'quiz.diagnostic.desc':  '30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平\n完成后获得雷达图分析 + 个性化推荐',
-    'quiz.diagnostic.notice': '题目涵盖技术深度，部分题目偏难属正常现象。<strong>诊断的目的是找到你的起点</strong>，不是评判好坏。不确定的题目可点击"跳过"继续。',
+    'quiz.diagnostic.notice': '<strong>诊断不是考试。</strong>不会的题帮助系统找到你的学习起点，而不是评判你的水平。题目涵盖技术深度，部分偏难属正常现象。不确定可点击"跳过"继续。',
     'btn.start_diagnostic': '开始全局诊断 →',
     'quiz.or_choose':     '── 或选择单个方向测评 ──',
     'quiz.flow.quit':     '← 退出',
@@ -118,6 +118,7 @@ const TRANSLATIONS = {
     'progress.radar_title': '掌握度雷达图',
     'progress.areas_title': '大类进度',
     'progress.next_title': '🚀 下一步推荐',
+    'progress.heatmap_title': '知识体系总览',
 
     // Search
     'search.found':       '找到 {n} 个相关知识点',
@@ -221,7 +222,7 @@ const TRANSLATIONS = {
     'quiz.subtitle':      'Discover your AI knowledge gaps and get targeted recommendations',
     'quiz.diagnostic.title': '🔍 Global Diagnostic',
     'quiz.diagnostic.desc':  '30 questions (2 per direction) — evaluates your knowledge across all 15 directions.\nGet a radar chart analysis + personalized recommendations.',
-    'quiz.diagnostic.notice': 'Some questions are intentionally challenging. <strong>The goal is to find your starting point</strong>, not to judge you. Use the "Skip" button if unsure.',
+    'quiz.diagnostic.notice': '<strong>This is not an exam.</strong> Skipping hard questions helps the system find your starting point — it doesn\'t judge your level. Some questions are intentionally technical. Use "Skip" if unsure.',
     'btn.start_diagnostic': 'Start Diagnostic →',
     'quiz.or_choose':     '── Or choose a single direction ──',
     'quiz.flow.quit':     '← Quit',
@@ -255,6 +256,7 @@ const TRANSLATIONS = {
     'progress.radar_title': 'Mastery Radar',
     'progress.areas_title': 'Area Progress',
     'progress.next_title': '🚀 Recommended Next Steps',
+    'progress.heatmap_title': 'Knowledge Overview',
 
     'search.found':       'Found {n} results',
     'search.not_found':   'No results for "{q}"',
@@ -324,6 +326,11 @@ function _applyDataI18n() {
       if (el.tagName === 'INPUT') el.placeholder = val;
       else el.textContent = val;
     }
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.dataset.i18nHtml;
+    const val = t(key);
+    if (val && val !== key) el.innerHTML = val;
   });
   // Update lang toggle button label
   const btn = document.getElementById('lang-toggle');
