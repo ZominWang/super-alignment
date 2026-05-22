@@ -475,6 +475,9 @@ function showNodeInfo(d) {
     const status = d.status || 'unknown';
     html += `<span class="node-status-badge ${getStatusClass(status, d.tested)}">${getStatusLabel(status, d.tested)}</span>`;
     html += `<br><button class="node-action-btn" onclick="startTopicQuiz('${d.id}')">测评本方向（12题）</button>`;
+    if (State.graphView === 'global') {
+      html += `<button class="node-action-btn node-expand-btn" onclick="navigateToNode('topic','${d.id}')">在图谱中定位 →</button>`;
+    }
   } else if (d.type === 'direction') {
     const totalTopics = d.topic_count || d.total || 0;
     html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">包含 ${totalTopics} 个主题</div>`;
@@ -605,60 +608,129 @@ function renderGlobalView() {
   if (!W || !H) return;
 
   const cx = W / 2, cy = H / 2;
-  const allAreas = State.graphData.nodes.filter(n => n.type === 'area');
-  const allDirs  = State.graphData.nodes.filter(n => n.type === 'direction');
+  const minDim = Math.min(W, H);
 
-  const n = allAreas.length;
-  const areaOrbit = Math.min(W, H) * 0.27;
-  const dirOrbit  = Math.min(areaOrbit * 0.44, 88);
-  const territoryR = dirOrbit + DIR_R + 16;
+  // 三环半径
+  const R1 = minDim * 0.10;   // Area 环（内）
+  const R2 = minDim * 0.28;   // Direction 环（中）
+  const R3 = minDim * 0.46;   // Topic 环（外）
+  const AREA_R_G  = 32;
+  const DIR_R_G   = 17;
+  const TOPIC_R_G = 7;
 
-  // 计算 Area 固定位置
+  const SECTOR = (2 * Math.PI) / 5;    // 每个 Area 占 72°
+  const DIR_SPREAD = SECTOR * 0.72;    // 方向节点展开角度（占扇区72%）
+
+  const allAreas  = State.graphData.nodes.filter(n => n.type === 'area');
+  const allDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
+  const allTopics = State.graphData.nodes.filter(n => n.type === 'topic');
+
+  // ── 计算 Area 位置 ──────────────────────────────────────────
   const areaPos = {};
   const areaNodes = allAreas.map((a, i) => {
-    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
-    const x = cx + areaOrbit * Math.cos(angle);
-    const y = cy + areaOrbit * Math.sin(angle);
+    const angle = (i / allAreas.length) * 2 * Math.PI - Math.PI / 2;
+    const x = cx + R1 * Math.cos(angle);
+    const y = cy + R1 * Math.sin(angle);
     areaPos[a.id] = { x, y, angle };
     return { ...a, x, y, _angle: angle };
   });
 
-  // 计算 Direction 固定位置（围绕所属 Area 展开）
+  // ── 计算 Direction 位置 ─────────────────────────────────────
+  const dirPos = {};
   const dirNodes = allDirs.map(d => {
     const ap = areaPos[d.area];
-    if (!ap) return { ...d, x: cx, y: cy };
+    if (!ap) return { ...d, x: cx, y: cy, _angle: 0 };
     const sameDirs = allDirs.filter(x => x.area === d.area);
-    const idx   = sameDirs.findIndex(x => x.id === d.id);
+    const idx = sameDirs.findIndex(x => x.id === d.id);
     const total = sameDirs.length;
-    const arc   = total === 1 ? 0 : Math.min(Math.PI * 0.65, (total - 1) * 0.52);
-    const step  = total > 1 ? arc / (total - 1) : 0;
-    const dAngle = (ap.angle - arc / 2) + idx * step;
-    return { ...d, x: ap.x + dirOrbit * Math.cos(dAngle), y: ap.y + dirOrbit * Math.sin(dAngle) };
+    const step = total > 1 ? DIR_SPREAD / (total - 1) : 0;
+    const dAngle = ap.angle - DIR_SPREAD / 2 + idx * step;
+    const x = cx + R2 * Math.cos(dAngle);
+    const y = cy + R2 * Math.sin(dAngle);
+    dirPos[d.id] = { x, y, angle: dAngle };
+    return { ...d, x, y, _angle: dAngle };
   });
 
-  // 领域"势力圈"（最底层）
+  // ── 计算 Topic 位置 ─────────────────────────────────────────
+  // 每个 direction 分得 DIR_SPREAD/3 的扇区，topics 在其中均分
+  const topicNodes = allTopics.map(t => {
+    const dp = dirPos[t.direction];
+    if (!dp) return { ...t, x: cx, y: cy };
+    const sameTopics = allTopics.filter(x => x.direction === t.direction);
+    const idx = sameTopics.findIndex(x => x.id === t.id);
+    const total = sameTopics.length;
+    const minStep = 0.042;  // 最小角步长（约2.4°），保证间距
+    const maxSpread = DIR_SPREAD / 3 * 0.88;
+    const spread = total > 1 ? Math.min(maxSpread, (total - 1) * minStep) : 0;
+    const step = total > 1 ? spread / (total - 1) : 0;
+    const tAngle = dp.angle - spread / 2 + idx * step;
+    return { ...t, x: cx + R3 * Math.cos(tAngle), y: cy + R3 * Math.sin(tAngle), _angle: tAngle };
+  });
+
+  // ── 领域扇区背景（饼块样式，最底层）──────────────────────────
   const terG = g.append('g').attr('class', 'g-territory');
   areaNodes.forEach(a => {
-    terG.append('circle')
-      .attr('cx', a.x).attr('cy', a.y).attr('r', territoryR)
-      .attr('fill', a.color).attr('fill-opacity', 0.055)
-      .attr('stroke', a.color).attr('stroke-width', 1.2)
-      .attr('stroke-opacity', 0.18).attr('stroke-dasharray', '5,4');
+    const arcPath = d3.arc()
+      .innerRadius(R1 - AREA_R_G - 2)
+      .outerRadius(R3 + TOPIC_R_G + 16)
+      .startAngle(a._angle - SECTOR / 2)
+      .endAngle(a._angle + SECTOR / 2);
+    terG.append('path')
+      .attr('d', arcPath)
+      .attr('transform', `translate(${cx},${cy})`)
+      .attr('fill', a.color).attr('fill-opacity', 0.045)
+      .attr('stroke', a.color).attr('stroke-width', 1)
+      .attr('stroke-opacity', 0.14).attr('stroke-dasharray', '4,4');
   });
 
-  // 连线（Area → Direction）
+  // ── 连线层（Dir→Topic 先，再 Area→Dir）──────────────────────
   const linkG = g.append('g').attr('class', 'g-links');
+
+  topicNodes.forEach(t => {
+    const dp = dirPos[t.direction];
+    if (!dp) return;
+    linkG.append('line')
+      .attr('x1', dp.x).attr('y1', dp.y)
+      .attr('x2', t.x).attr('y2', t.y)
+      .attr('stroke', 'var(--border)').attr('stroke-width', 0.7)
+      .attr('stroke-opacity', 0.28);
+  });
+
   dirNodes.forEach(d => {
     const ap = areaPos[d.area];
     if (!ap) return;
     linkG.append('line')
       .attr('x1', ap.x).attr('y1', ap.y)
       .attr('x2', d.x).attr('y2', d.y)
-      .attr('stroke', 'var(--border)').attr('stroke-width', 1)
-      .attr('stroke-opacity', 0.55);
+      .attr('stroke', 'var(--border)').attr('stroke-width', 1.2)
+      .attr('stroke-opacity', 0.48);
   });
 
-  // Direction 节点（先渲染，在 Area 节点之下）
+  // ── Topic 节点（颜色=掌握状态，无文字，hover 显 tooltip）────
+  const topicG = g.append('g').attr('class', 'g-topics');
+  const topicNodeG = topicG.selectAll('.node-topic-global')
+    .data(topicNodes).join('g')
+    .attr('class', 'node-g node-topic-global')
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .style('cursor', 'pointer')
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
+
+  topicNodeG.append('title').text(d => d.name || '');
+
+  topicNodeG.append('circle')
+    .attr('r', TOPIC_R_G)
+    .attr('fill', d => {
+      const s = d.status || 'unknown';
+      if (s === 'mastered')   return '#3fb950';
+      if (s === 'learning')   return '#d29922';
+      if (s === 'needs_work') return '#f85149';
+      return '#4A4A6A';
+    })
+    .attr('fill-opacity', 0.88)
+    .attr('stroke', d => d.color || '#607D8B')
+    .attr('stroke-width', 1);
+
+  // ── Direction 节点（中环）──────────────────────────────────
   const dirG = g.append('g').attr('class', 'g-dirs');
   const dirNodeG = dirG.selectAll('.node-dir')
     .data(dirNodes).join('g')
@@ -668,21 +740,21 @@ function renderGlobalView() {
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
   dirNodeG.append('circle')
-    .attr('r', DIR_R)
+    .attr('r', DIR_R_G)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', 0.8)
+    .attr('fill-opacity', 0.82)
     .attr('stroke', d => d.color).attr('stroke-width', 1.5)
     .attr('class', 'node-circle');
 
   dirNodeG.append('path')
-    .attr('d', d => makeRingPath(d, DIR_R))
+    .attr('d', d => makeRingPath(d, DIR_R_G))
     .attr('fill', '#3fb950').attr('opacity', 0.9);
 
   dirNodeG.append('text').attr('dy', '4')
-    .attr('class', 'node-label').style('font-size', '9px')
-    .text(d => { const nm = d.name || ''; return nm.length > 7 ? nm.slice(0,7)+'…' : nm; });
+    .attr('class', 'node-label').style('font-size', '8px')
+    .text(d => { const nm = d.name || ''; return nm.length > 6 ? nm.slice(0, 6) + '…' : nm; });
 
-  // Area 节点（后渲染，在最上层）
+  // ── Area 节点（内环，最上层）────────────────────────────────
   const areaG = g.append('g').attr('class', 'g-areas');
   const areaNodeG = areaG.selectAll('.node-area')
     .data(areaNodes).join('g')
@@ -691,29 +763,28 @@ function renderGlobalView() {
     .style('cursor', 'pointer')
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
-  // Area 外圈轨道（视觉装饰）
   areaNodeG.append('circle')
-    .attr('r', AREA_R + 8)
+    .attr('r', AREA_R_G + 5)
     .attr('fill', 'none')
     .attr('stroke', d => d.color).attr('stroke-width', 1)
-    .attr('stroke-opacity', 0.25).attr('stroke-dasharray', '3,3');
+    .attr('stroke-opacity', 0.22).attr('stroke-dasharray', '3,3');
 
   areaNodeG.append('circle')
-    .attr('r', AREA_R)
+    .attr('r', AREA_R_G)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
     .attr('fill-opacity', 0.92)
     .attr('stroke', d => d.color).attr('stroke-width', 2.5)
     .attr('class', 'node-circle');
 
   areaNodeG.append('path')
-    .attr('d', d => makeRingPath(d, AREA_R + 2))
+    .attr('d', d => makeRingPath(d, AREA_R_G + 1))
     .attr('fill', '#3fb950').attr('opacity', 0.9);
 
-  areaNodeG.append('text').attr('dy', '-6')
-    .attr('class', 'node-label node-label-area').style('font-size', '18px')
+  areaNodeG.append('text').attr('dy', '-4')
+    .attr('class', 'node-label node-label-area').style('font-size', '15px')
     .text(d => d.icon || '');
 
-  areaNodeG.append('text').attr('dy', '14')
+  areaNodeG.append('text').attr('dy', '13')
     .attr('class', 'node-label node-label-area')
     .text(d => d.name);
 

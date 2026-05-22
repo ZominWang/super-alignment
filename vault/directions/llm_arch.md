@@ -6,6 +6,6 @@ type: "direction"
 level: 2
 area: "llm"
 color: "#D0021B"
-description: "注意力机制、Transformer架构、预训练语言模型与分词"
-topic_count: 4
+description: "LLM能力边界、注意力机制、Transformer架构、预训练语言模型与分词"
+topic_count: 5
 ---
