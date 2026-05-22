@@ -1051,6 +1051,7 @@ function renderGlobalView() {
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); })
     .on('dblclick', (e, d) => { e.stopPropagation(); navigateToNode('direction', d.id); });
 
+  dirSel.append('title').text(d => entityName(d) || '');
   dirSel.append('circle')
     .attr('r', DIR_R_G)
     .attr('fill', d => d.color).attr('fill-opacity', 0.88)
