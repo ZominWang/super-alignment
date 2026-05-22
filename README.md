@@ -20,7 +20,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone <your-repo-url>
+git clone https://github.com/ZominWang/super-alignment.git
 cd knowledge_graph
 
 # 2. 启动（首次运行自动创建虚拟环境并安装依赖）
