@@ -19,9 +19,9 @@
 **环境要求**：Python 3.8+，无需其他外部服务
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/ZominWang/super-alignment.git
-cd knowledge_graph
+# 1. 克隆项目（点击页面右上角 Code → 复制地址）
+git clone <仓库地址>
+cd super-alignment
 
 # 2. 启动（首次运行自动创建虚拟环境并安装依赖）
 bash run.sh
