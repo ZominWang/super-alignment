@@ -82,7 +82,8 @@
       <div class="view-toggle-bar">
         <button class="view-toggle-btn active" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
         <button class="view-toggle-btn" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
-        <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')">领域浏览</button>
+        <!-- 领域浏览：通过双击节点或"查看主题图"按钮进入，不作为顶级导航入口 -->
+        <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')" style="display:none">领域浏览</button>
       </div>
       <div class="graph-legend">
         <div class="legend-group-title" data-i18n="legend.domains">知识域</div>
@@ -130,11 +131,12 @@
       </div>
 
       <div class="node-info-panel" id="node-info-panel">
-        <div class="node-info-empty" id="node-info-empty-msg">点击节点查看详情<br><br><strong>全局总览</strong>：探索完整知识体系<br><strong>领域浏览</strong>：逐层展开到具体主题</div>
+        <div class="node-info-empty" id="node-info-empty-msg">点击节点查看详情<br><br><strong>单击</strong>：查看知识点详情<br><strong>双击</strong>：深入探索该方向<br><strong>图例</strong>：点击可筛选大类</div>
       </div>
     </div>
     <div class="graph-canvas-wrap">
       <div class="graph-breadcrumb" id="graph-breadcrumb">
+        <button class="crumb-back-global" id="crumb-back-global" onclick="setGraphView('global')" style="display:none" title="返回全局总览">← 全局</button>
         <span class="crumb" id="crumb-root" onclick="resetToAreas()">全部大类</span>
       </div>
       <svg id="graph-svg"></svg>

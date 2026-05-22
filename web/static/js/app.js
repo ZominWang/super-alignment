@@ -378,6 +378,8 @@ function expandArea(areaId) {
   const areaNode = State.graphData.nodes.find(n => n.id === areaId);
   updateLayerDots(2);
   updateBreadcrumb([{ id: areaId, name: areaNode?.name || areaId, fn: resetToAreas }]);
+  const backBtn = document.getElementById('crumb-back-global');
+  if (backBtn) backBtn.style.display = '';
   clearGraph();
 
   const wrap = document.getElementById('graph-svg').parentElement;
@@ -454,6 +456,8 @@ function expandDirection(dirId) {
     { id: areaId, name: areaNode?.name || areaId, fn: resetToAreas },
     { id: dirId, name: dirNode?.name || dirId, fn: () => expandArea(areaId) }
   ]);
+  const backBtn = document.getElementById('crumb-back-global');
+  if (backBtn) backBtn.style.display = '';
   clearGraph();
 
   const wrap = document.getElementById('graph-svg').parentElement;
@@ -551,7 +555,7 @@ function expandDirection(dirId) {
 
 function resetToAreas() {
   document.getElementById('node-info-panel').innerHTML =
-    `<div class="node-info-empty">${t('node.empty')}<br><br><strong>${t('node.hint.global')}</strong>：${t('node.hint.global.desc')}<br><strong>${t('node.hint.domain')}</strong>：${t('node.hint.domain.desc')}</div>`;
+    `<div class="node-info-empty">${t('node.empty')}<br><br><strong>${t('node.hint.click')}</strong>：${t('node.hint.click.desc')}<br><strong>${t('node.hint.dblclick')}</strong>：${t('node.hint.dblclick.desc')}<br><strong>${t('node.hint.legend')}</strong>：${t('node.hint.legend.desc')}</div>`;
   if (State.graphView === 'global') {
     renderGlobalView();
   } else {
@@ -575,6 +579,33 @@ function showNodeInfo(d) {
     bar.className = 'node-color-bar';
     bar.style.background = d.color;
     card.appendChild(bar);
+  }
+
+  // Breadcrumb path (area > direction for topics; area for directions)
+  if (d.type === 'topic' || d.type === 'direction') {
+    const allNodes = State.graphData?.nodes || [];
+    const areaNode = allNodes.find(n => n.id === d.area && n.type === 'area');
+    const crumbEl = document.createElement('div');
+    crumbEl.className = 'node-info-crumb';
+    if (areaNode) {
+      const areaSpan = document.createElement('span');
+      areaSpan.style.color = areaNode.color || 'var(--text-muted)';
+      areaSpan.textContent = entityName(areaNode);
+      crumbEl.appendChild(areaSpan);
+    }
+    if (d.type === 'topic') {
+      const dirNode = allNodes.find(n => n.id === d.direction && n.type === 'direction');
+      if (dirNode) {
+        const sepEl = document.createElement('span');
+        sepEl.className = 'crumb-sep';
+        sepEl.textContent = ' › ';
+        crumbEl.appendChild(sepEl);
+        const dirSpan = document.createElement('span');
+        dirSpan.textContent = entityName(dirNode);
+        crumbEl.appendChild(dirSpan);
+      }
+    }
+    if (crumbEl.children.length) card.appendChild(crumbEl);
   }
 
   // Type label
@@ -888,6 +919,8 @@ function renderGlobalView() {
   State.activePathStep = null;
   updateLayerDots(0);   // hide layer indicator — global view shows all levels at once
   updateBreadcrumb([]);
+  const backBtn = document.getElementById('crumb-back-global');
+  if (backBtn) backBtn.style.display = 'none';
   clearGraph();
   if (simulation) { simulation.stop(); simulation = null; }
 
@@ -1099,12 +1132,15 @@ function setGraphView(view) {
     g.selectAll('\.path-highlight').remove();
     State.activePathStep = null;
 
+    const backBtn = document.getElementById('crumb-back-global');
     if (view === 'global') {
       State.simulationNodes = null;
+      if (backBtn) backBtn.style.display = 'none';
       renderGlobalView();
     } else {
       // Restore domain drill-down state if previously expanded
       State.simulationNodes = null;
+      if (backBtn) backBtn.style.display = '';
       if (State.graphLevel === 'topic' && State.expandedDirection) {
         expandDirection(State.expandedDirection);
       } else if (State.graphLevel === 'direction' && State.expandedArea) {
@@ -1874,6 +1910,25 @@ document.getElementById('search-input').addEventListener('keydown', e => {
 document.getElementById('search-clear').addEventListener('click', () => {
   document.getElementById('search-input').value = '';
   closeSearch();
+});
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', e => {
+  // Cmd/Ctrl+K or / to focus search
+  const isSearchShortcut = (e.key === 'k' && (e.metaKey || e.ctrlKey)) ||
+    (e.key === '/' && !e.target.closest('input, textarea'));
+  if (isSearchShortcut) {
+    e.preventDefault();
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+  // Escape to close any open overlay
+  if (e.key === 'Escape') {
+    closeSearch();
+  }
 });
 
 async function runSearch(q) {

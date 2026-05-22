@@ -521,6 +521,17 @@ body {
   padding: 14px;
 }
 
+/* Node info — area > direction breadcrumb */
+.node-info-crumb {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1px;
+}
+
 .node-info-type {
   font-size: 11px;
   text-transform: uppercase;
@@ -738,6 +749,20 @@ body {
 .crumb { cursor: pointer; color: var(--accent); }
 .crumb:hover { text-decoration: underline; }
 .crumb-sep { color: var(--border); }
+
+/* Back-to-global button in breadcrumb */
+.crumb-back-global {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-right: 4px;
+  transition: color .15s, border-color .15s;
+}
+.crumb-back-global:hover { color: var(--accent); border-color: var(--accent); }
 
 /* 节点样式 (SVG) */
 .node-circle { cursor: pointer; stroke-width: 2; }
