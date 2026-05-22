@@ -1716,6 +1716,18 @@ body {
   color: var(--text-muted);
 }
 
+.search-diff-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 5px;
+  vertical-align: middle;
+  font-weight: 500;
+}
+.diff-easy { background: rgba(63,185,80,.15); color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
+.diff-hard { background: rgba(248,81,73,.12); color: #f85149; border: 1px solid rgba(248,81,73,.25); }
+
 .search-empty {
   text-align: center;
   padding: 40px 20px;

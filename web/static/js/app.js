@@ -2211,11 +2211,22 @@ function renderSearchResult(r) {
     ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px"></span>`
     : '';
 
+  // Difficulty badge for topics (helps new users gauge complexity)
+  let diffBadge = '';
+  if (r.type === 'topic' && r.difficulty) {
+    const diff = r.difficulty;
+    if (diff >= 4) {
+      diffBadge = `<span class="search-diff-badge diff-hard">${getLang() === 'en' ? 'Adv' : '进阶'}</span>`;
+    } else if (diff <= 2) {
+      diffBadge = `<span class="search-diff-badge diff-easy">${getLang() === 'en' ? 'Intro' : '入门'}</span>`;
+    }
+  }
+
   return `
     <div class="search-result-item" data-type="${escHtml(r.type)}" data-id="${escHtml(r.id)}">
       <span class="search-result-type-badge ${badgeClass}">${escHtml(typeLabel)}</span>
       <div class="search-result-content">
-        <div class="search-result-name">${statusDot}${escHtml(displayName)}${displayNameAlt ? ` <span style="color:var(--text-muted);font-weight:400;font-size:11px">${escHtml(displayNameAlt)}</span>` : ''}</div>
+        <div class="search-result-name">${statusDot}${escHtml(displayName)}${diffBadge}${displayNameAlt ? ` <span style="color:var(--text-muted);font-weight:400;font-size:11px">${escHtml(displayNameAlt)}</span>` : ''}</div>
         ${path ? `<div class="search-result-path">${path}</div>` : ''}
         ${r.description ? `<div class="search-result-desc">${escHtml(r.description)}</div>` : ''}
         ${tags ? `<div class="search-result-tags">${tags}</div>` : ''}
