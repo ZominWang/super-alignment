@@ -291,7 +291,7 @@ function initGraph() {
 
   renderGlobalView();
   // 默认侧栏显示路径导览（图谱保持全局总览）
-  setTimeout(() => setGraphView('path'), 80);
+  setGraphView('path');
 
   const ro = new ResizeObserver(entries => {
     const e = entries[0];
@@ -635,6 +635,9 @@ function startDirectionQuizFromGraph(dirId) {
 }
 
 function updateLayerDots(level) {
+  // Layer dots only meaningful in domain drill-down view
+  const indicator = document.querySelector('.layer-indicator');
+  if (indicator) indicator.style.visibility = level > 0 ? 'visible' : 'hidden';
   for (let i = 1; i <= 3; i++) {
     const dot = document.getElementById(`ld-${i}`);
     if (dot) dot.classList.toggle('active', i <= level);
@@ -723,7 +726,7 @@ function renderGlobalView() {
   State.expandedDirection = null;
   if (State.graphView !== 'path') State.graphView = 'global';
   State.activePathStep = null;
-  updateLayerDots(1);
+  updateLayerDots(0);   // hide layer indicator — global view shows all levels at once
   updateBreadcrumb([]);
   clearGraph();
   if (simulation) { simulation.stop(); simulation = null; }
@@ -734,21 +737,18 @@ function renderGlobalView() {
 
   const cx = W / 2, cy = H / 2;
 
-  // Node radii for global view (smaller than domain view)
-  const AREA_R_G  = 30;
+  // Two rings: directions (inner) + topics (outer). Area = background sector.
+  const R_DIR     = 200;
+  const R_TOPIC   = 380;
   const DIR_R_G   = 14;
-  const TOPIC_R_G = 8;
-
-  // Three concentric rings — fitGraph() handles zoom to fit
-  const R_AREA  = 110;
-  const R_DIR   = 260;
-  const R_TOPIC = 420;
+  // r = 5 + importance*2 → imp3=11, imp4=13, imp5=15 (3 visible steps)
+  const topicRadius = d => 5 + (d.importance || 3) * 2;
 
   const rawAreas  = State.graphData.nodes.filter(n => n.type === 'area');
   const rawDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
   const rawTopics = State.graphData.nodes.filter(n => n.type === 'topic');
 
-  // Count topics per direction and per area (for proportional sector sizing)
+  // Count topics per direction and per area for proportional sector sizing
   const topicsPerDir = {};
   rawTopics.forEach(t => { topicsPerDir[t.direction] = (topicsPerDir[t.direction] || 0) + 1; });
   const topicsPerArea = {};
@@ -756,7 +756,6 @@ function renderGlobalView() {
   rawDirs.forEach(d => { topicsPerArea[d.area] = (topicsPerArea[d.area] || 0) + (topicsPerDir[d.id] || 0); });
   const totalTopics = rawTopics.length || 1;
 
-  // Assign angular sectors to areas (proportional to topic count, starting at top)
   const TAU = 2 * Math.PI;
   let angle = -Math.PI / 2;
   const areaAngles = {};
@@ -767,7 +766,6 @@ function renderGlobalView() {
     angle += span;
   });
 
-  // Assign sub-sectors to directions within each area (proportional to their topic count)
   const dirAngles = {};
   rawAreas.forEach(a => {
     const dirsInArea = rawDirs.filter(d => d.area === a.id);
@@ -783,18 +781,13 @@ function renderGlobalView() {
     });
   });
 
-  // Group topics by direction for even distribution within sub-sector
   const topicsByDir = {};
   rawTopics.forEach(t => {
     if (!topicsByDir[t.direction]) topicsByDir[t.direction] = [];
     topicsByDir[t.direction].push(t);
   });
 
-  // Compute fixed positions
-  const areaNodes = rawAreas.map(a => {
-    const mid = areaAngles[a.id].mid;
-    return { ...a, x: cx + R_AREA * Math.cos(mid), y: cy + R_AREA * Math.sin(mid) };
-  });
+  // Compute fixed positions (no simulation)
   const dirNodes = rawDirs.map(d => {
     const mid = (dirAngles[d.id] || { mid: 0 }).mid;
     return { ...d, x: cx + R_DIR * Math.cos(mid), y: cy + R_DIR * Math.sin(mid) };
@@ -810,26 +803,57 @@ function renderGlobalView() {
     topicNodes.push({ ...t, x: cx + R_TOPIC * Math.cos(tAngle), y: cy + R_TOPIC * Math.sin(tAngle) });
   });
 
-  State.simulationNodes = [...areaNodes, ...dirNodes, ...topicNodes];
+  State.simulationNodes = [...dirNodes, ...topicNodes];
 
-  // Build index maps for link drawing
-  const areaById = Object.fromEntries(areaNodes.map(a => [a.id, a]));
-  const dirById  = Object.fromEntries(dirNodes.map(d => [d.id, d]));
-  const links = [
-    ...dirNodes.map(d   => ({ source: areaById[d.area],       target: d, kind: 'area-dir'  })),
-    ...topicNodes.map(t => ({ source: dirById[t.direction],   target: t, kind: 'dir-topic' })),
-  ].filter(l => l.source && l.target);
+  const topicById = Object.fromEntries(topicNodes.map(t => [t.id, t]));
+  const dirById   = Object.fromEntries(dirNodes.map(d => [d.id, d]));
 
-  // ── Links ──────────────────────────────────────────────────
-  const linkG = g.append('g').attr('class', 'g-links');
-  linkG.selectAll('line').data(links).join('line')
-    .attr('stroke', 'var(--border)')
-    .attr('stroke-opacity', d => d.kind === 'area-dir' ? 0.5 : 0.18)
-    .attr('stroke-width',   d => d.kind === 'area-dir' ? 1.4 : 0.7)
-    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  // ── Area sector backgrounds (cluster hulls) ────────────────
+  const sectorArc = d3.arc().innerRadius(0).outerRadius(R_TOPIC + 38);
+  const bgG = g.append('g').attr('class', 'g-area-bg').attr('transform', `translate(${cx},${cy})`);
+  bgG.selectAll('path').data(rawAreas).join('path')
+    .attr('d', a => {
+      const ang = areaAngles[a.id] || { start: 0, end: 0 };
+      return sectorArc.startAngle(ang.start).endAngle(ang.end)();
+    })
+    .attr('fill', a => a.color).attr('fill-opacity', 0.07)
+    .attr('stroke', a => a.color).attr('stroke-opacity', 0.18).attr('stroke-width', 0.8);
 
-  // ── Topic nodes (outermost ring, color = mastery status) ────
+  // ── Area labels (outside outer ring, icon + name) ──────────
+  const areaLabelG = g.append('g').attr('class', 'g-area-labels');
+  rawAreas.forEach(a => {
+    const mid = (areaAngles[a.id] || { mid: 0 }).mid;
+    const lx = cx + (R_TOPIC + 62) * Math.cos(mid);
+    const ly = cy + (R_TOPIC + 62) * Math.sin(mid);
+    const lg = areaLabelG.append('g').attr('transform', `translate(${lx},${ly})`);
+    lg.append('text').attr('dy', '-1').attr('class', 'node-label')
+      .style('font-size', '14px').style('text-anchor', 'middle').text(a.icon || '');
+    lg.append('text').attr('dy', '14').attr('class', 'node-label')
+      .style('font-size', '11px').style('text-anchor', 'middle')
+      .text(entityName(a) || a.name || '');
+  });
+
+  // ── Prerequisite links (dashed — the graph's structural backbone) ──
+  const prereqLinks = (State.graphData.links || [])
+    .filter(l => l.type === 'prerequisite')
+    .map(l => {
+      const sid = typeof l.source === 'object' ? l.source.id : l.source;
+      const tid = typeof l.target === 'object' ? l.target.id : l.target;
+      const src = topicById[sid], tgt = topicById[tid];
+      return src && tgt ? { source: src, target: tgt } : null;
+    })
+    .filter(Boolean);
+
+  if (prereqLinks.length > 0) {
+    g.append('g').attr('class', 'g-prereq-links')
+      .selectAll('line').data(prereqLinks).join('line')
+      .attr('class', 'link-prereq')
+      .attr('stroke-opacity', 0.30).attr('stroke-width', 0.8)
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  }
+
+  // ── Topic nodes (outer ring, size = importance, color = status) ──
   const topicG  = g.append('g').attr('class', 'g-topics');
   const topicSel = topicG.selectAll('g').data(topicNodes).join('g')
     .attr('class', 'node-g node-topic-global')
@@ -840,7 +864,7 @@ function renderGlobalView() {
 
   topicSel.append('title').text(d => entityName(d) || '');
   topicSel.append('circle')
-    .attr('r', TOPIC_R_G)
+    .attr('r', d => topicRadius(d))
     .attr('fill', d => {
       const s = d.status || 'unknown';
       if (s === 'mastered') return '#3fb950';
@@ -848,10 +872,10 @@ function renderGlobalView() {
       if (d.tested)         return '#f85149';
       return '#4A4A6A';
     })
-    .attr('fill-opacity', 0.85)
-    .attr('stroke', d => d.color || '#607D8B').attr('stroke-width', 1.2);
+    .attr('fill-opacity', 0.88)
+    .attr('stroke', d => d.color || '#607D8B').attr('stroke-width', 1.5);
 
-  // ── Direction nodes (middle ring, color = domain color) ─────
+  // ── Direction nodes (inner ring, domain color) ──────────────
   const dirG   = g.append('g').attr('class', 'g-dirs');
   const dirSel = dirG.selectAll('g').data(dirNodes).join('g')
     .attr('class', 'node-g node-dir')
@@ -861,38 +885,14 @@ function renderGlobalView() {
 
   dirSel.append('circle')
     .attr('r', DIR_R_G)
-    .attr('fill', d => d.color)
-    .attr('fill-opacity', 0.88)
+    .attr('fill', d => d.color).attr('fill-opacity', 0.88)
     .attr('stroke', d => d.color).attr('stroke-width', 1.8)
     .attr('class', 'node-circle');
   dirSel.append('path').attr('d', d => makeRingPath(d, DIR_R_G))
     .attr('fill', '#3fb950').attr('opacity', 0.9);
   dirSel.append('text').attr('dy', DIR_R_G + 12)
     .attr('class', 'node-label').style('font-size', '10px')
-    .text(d => { const nm = entityName(d) || ''; return nm.length > 6 ? nm.slice(0, 5) + '…' : nm; });
-
-  // ── Area nodes (inner ring, color = domain color) ──────────
-  const areaG   = g.append('g').attr('class', 'g-areas');
-  const areaSel = areaG.selectAll('g').data(areaNodes).join('g')
-    .attr('class', 'node-g node-area')
-    .attr('transform', d => `translate(${d.x},${d.y})`)
-    .style('cursor', 'pointer')
-    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
-
-  areaSel.append('circle').attr('r', AREA_R_G + 5)
-    .attr('fill', 'none').attr('stroke', d => d.color)
-    .attr('stroke-width', 1).attr('stroke-opacity', 0.22).attr('stroke-dasharray', '3,3');
-  areaSel.append('circle').attr('r', AREA_R_G)
-    .attr('fill', d => d.color)
-    .attr('fill-opacity', 0.92).attr('stroke', d => d.color).attr('stroke-width', 2.5)
-    .attr('class', 'node-circle');
-  areaSel.append('path').attr('d', d => makeRingPath(d, AREA_R_G + 1))
-    .attr('fill', '#3fb950').attr('opacity', 0.9);
-  areaSel.append('text').attr('dy', '-4')
-    .attr('class', 'node-label node-label-area').style('font-size', '15px')
-    .text(d => d.icon || '');
-  areaSel.append('text').attr('dy', '13')
-    .attr('class', 'node-label node-label-area').text(d => entityName(d));
+    .text(d => { const nm = entityName(d) || ''; return nm.length > 9 ? nm.slice(0, 8) + '…' : nm; });
 
   fitGraph();
 }
@@ -915,6 +915,7 @@ function setGraphView(view) {
     if (gb) gb.classList.remove('active');
     if (db) db.classList.remove('active');
     if (pb) pb.classList.add('active');
+    updateLayerDots(0);   // hide layer dots in path view
     // 仅在没有全局仿真数据时才重新渲染
     if (!State.simulationNodes) {
       renderGlobalView();
@@ -1044,7 +1045,7 @@ function doHighlight(topicId) {
   if (!nodeG.empty()) {
     nodeG.append('circle')
       .attr('class', 'path-highlight')
-      .attr('r', 16)
+      .attr('r', 20)
       .attr('fill', 'none')
       .attr('stroke', '#FFD700')
       .attr('stroke-width', 2.5)

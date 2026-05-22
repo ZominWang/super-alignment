@@ -26,10 +26,8 @@ const TRANSLATIONS = {
     'legend.status':      '主题掌握状态',
     'legend.size':        '节点大小',
     'legend.lines':       '连线含义',
-    'legend.size.area':   '大类',
     'legend.size.dir':    '方向',
-    'legend.size.topic':  '主题',
-    'legend.line.hier':   '层级关系',
+    'legend.size.topic':  '主题（大=重要）',
     'legend.line.prereq': '前置依赖',
     'legend.ring':        '○ 外环弧度 = 聚合掌握进度',
 
@@ -157,10 +155,8 @@ const TRANSLATIONS = {
     'legend.status':      'Topic Mastery',
     'legend.size':        'Node Sizes',
     'legend.lines':       'Link Meanings',
-    'legend.size.area':   'Area',
     'legend.size.dir':    'Direction',
-    'legend.size.topic':  'Topic',
-    'legend.line.hier':   'Hierarchy',
+    'legend.size.topic':  'Topic (larger = more important)',
     'legend.line.prereq': 'Prerequisite',
     'legend.ring':        '○ Arc = aggregate mastery',
 
