@@ -1020,7 +1020,8 @@ function renderGlobalView() {
     .attr('data-id', d => d.id)
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
-    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); })
+    .on('dblclick', (e, d) => { e.stopPropagation(); navigateToNode('topic', d.id); });
 
   topicSel.append('title').text(d => entityName(d) || '');
   // Invisible larger circle for easier click/touch targeting
@@ -1034,7 +1035,11 @@ function renderGlobalView() {
       if (d.tested)         return '#f85149';
       return '#4A4A6A';
     })
-    .attr('fill-opacity', 0.88)
+    .attr('fill-opacity', d => {
+      // Hard topics recede slightly so beginners see easier entry points first
+      const diff = Math.max(1, Math.min(5, d.difficulty || 3));
+      return 1.0 - (diff - 1) * 0.065; // diff 1 → 1.0, diff 5 → 0.74
+    })
     .attr('stroke', d => d.color || '#607D8B').attr('stroke-width', 1.5);
 
   // ── Direction nodes (inner ring, domain color) ──────────────
@@ -1043,7 +1048,8 @@ function renderGlobalView() {
     .attr('class', 'node-g node-dir')
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
-    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); })
+    .on('dblclick', (e, d) => { e.stopPropagation(); navigateToNode('direction', d.id); });
 
   dirSel.append('circle')
     .attr('r', DIR_R_G)
@@ -1096,10 +1102,17 @@ function setGraphView(view) {
       State.simulationNodes = null;
       renderGlobalView();
     } else {
+      // Restore domain drill-down state if previously expanded
       State.simulationNodes = null;
-      State.expandedArea = null;
-      State.expandedDirection = null;
-      renderAreaLevel();
+      if (State.graphLevel === 'topic' && State.expandedDirection) {
+        expandDirection(State.expandedDirection);
+      } else if (State.graphLevel === 'direction' && State.expandedArea) {
+        expandArea(State.expandedArea);
+      } else {
+        State.expandedArea = null;
+        State.expandedDirection = null;
+        renderAreaLevel();
+      }
     }
   }
 }
