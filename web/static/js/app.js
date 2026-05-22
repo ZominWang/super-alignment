@@ -1686,7 +1686,7 @@ function renderNextSteps(result) {
 function goToTopicFromResult(topicId) {
   hide('quiz-result-view');
   switchToTab('graph');
-  setTimeout(() => navigateToNode(topicId), 200);
+  setTimeout(() => navigateToNode('topic', topicId), 200);
 }
 
 function renderDirectionResult(result) {
@@ -1741,8 +1741,8 @@ document.getElementById('btn-view-direction-graph').addEventListener('click', ()
   const dirId = State.currentDirectionId;
   hide('direction-result-view');
   show('quiz-home-view');
-  switchToTab('graph');
-  if (dirId) setTimeout(() => expandDirection(dirId), 150);
+  if (dirId) navigateToNode('direction', dirId);
+  else switchToTab('graph');
 });
 
 // ============================================================
@@ -2028,6 +2028,9 @@ function navigateToNode(type, id) {
     if (gb) gb.classList.remove('active');
     if (db) db.classList.add('active');
   }
+  // Show back button whenever we're in domain view
+  const _backBtn = document.getElementById('crumb-back-global');
+  if (_backBtn) _backBtn.style.display = '';
 
   const STEP = 60;
 
