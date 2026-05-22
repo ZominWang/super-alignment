@@ -100,6 +100,7 @@
       <div class="view-toggle-bar">
         <button class="view-toggle-btn active" id="btn-global-view" onclick="setGraphView('global')">全局总览</button>
         <button class="view-toggle-btn" id="btn-domain-view" onclick="setGraphView('domain')">领域浏览</button>
+        <button class="view-toggle-btn" id="btn-path-view" onclick="setGraphView('path')">路径导览</button>
       </div>
       <div class="graph-legend">
         <div class="legend-group-title">知识域</div>
@@ -142,6 +143,17 @@
           <span>前置依赖</span>
         </div>
       </div>
+
+      <!-- 路径导览面板 -->
+      <div class="path-panel hidden" id="path-panel">
+        <div class="path-intent-bar">
+          <button class="path-intent-btn active" id="btn-apply-path" onclick="setActivePath('apply')">会用</button>
+          <button class="path-intent-btn" id="btn-understand-path" onclick="setActivePath('understand')">懂原理</button>
+        </div>
+        <div class="path-meta" id="path-meta"></div>
+        <div class="path-steps" id="path-steps"></div>
+      </div>
+
       <div class="node-info-panel" id="node-info-panel">
         <div class="node-info-empty">点击节点查看详情<br><br><strong>全局总览</strong>：5大域·15方向·全部主题一屏可见<br><strong>领域浏览</strong>：逐层展开到具体主题</div>
       </div>

@@ -11,12 +11,13 @@
 
 const State = {
   graphLevel: 'area',        // 'area' | 'direction' | 'topic'
-  graphView: 'global',       // 'global' | 'domain'
+  graphView: 'global',       // 'global' | 'domain' | 'path'
   expandedArea: null,        // 当前展开的 area id
   expandedDirection: null,   // 当前展开的 direction id
   graphData: null,           // 完整图谱数据
   directions: [],            // 所有方向数据
   areas: [],                 // 所有大类数据
+  activePath: 'apply',       // 'apply' | 'understand'
 
   // 测评
   quizMode: null,            // 'diagnostic' | 'direction'
@@ -25,6 +26,49 @@ const State = {
   quizAnswers: [],           // 已提交的答案记录
   currentDirectionId: null,  // 当前方向测评的 direction id
   answeredCurrent: false,    // 当前题目是否已作答
+};
+
+// ============================================================
+// 学习路径定义（按意图分组）
+// ============================================================
+
+const LEARNING_PATHS = {
+  apply: {
+    label: '会用',
+    desc: '从理解AI能力到使用Agent工具链的实践路径，适合想把AI用起来的人',
+    steps: [
+      'llm_capabilities',
+      'basic_prompting',
+      'chain_of_thought',
+      'context_engineering',
+      'rag_basics',
+      'embeddings',
+      'agent_basics',
+      'tool_use',
+      'mcp_protocol',
+      'skill_building',
+      'workflow_automation',
+      'ai_coding',
+    ]
+  },
+  understand: {
+    label: '懂原理',
+    desc: '从数学基础到大模型训练对齐的技术原理路径，适合想理解AI底层机制的人',
+    steps: [
+      'linear_algebra',
+      'probability_statistics',
+      'neural_network_basics',
+      'backpropagation',
+      'attention_mechanism',
+      'transformer_arch',
+      'tokenization',
+      'pretrained_lm',
+      'llm_pretraining',
+      'sft',
+      'rlhf',
+      'peft_lora',
+    ]
+  }
 };
 
 // ============================================================
@@ -796,16 +840,95 @@ function setGraphView(view) {
   State.graphView = view;
   const gb = document.getElementById('btn-global-view');
   const db = document.getElementById('btn-domain-view');
+  const pb = document.getElementById('btn-path-view');
   if (gb) gb.classList.toggle('active', view === 'global');
   if (db) db.classList.toggle('active', view === 'domain');
+  if (pb) pb.classList.toggle('active', view === 'path');
 
-  if (view === 'global') {
-    renderGlobalView();
+  if (view === 'path') {
+    // 路径视图：不清空图谱，只切换侧栏内容
+    document.querySelector('.graph-legend').classList.add('hidden');
+    document.getElementById('node-info-panel').classList.add('hidden');
+    document.getElementById('path-panel').classList.remove('hidden');
+    renderPathPanel();
   } else {
-    State.expandedArea = null;
-    State.expandedDirection = null;
-    renderAreaLevel();
+    // 切回图谱视图：恢复侧栏
+    document.querySelector('.graph-legend').classList.remove('hidden');
+    document.getElementById('node-info-panel').classList.remove('hidden');
+    document.getElementById('path-panel').classList.add('hidden');
+
+    if (view === 'global') {
+      renderGlobalView();
+    } else {
+      State.expandedArea = null;
+      State.expandedDirection = null;
+      renderAreaLevel();
+    }
   }
+}
+
+// ============================================================
+// 路径导览
+// ============================================================
+
+function renderPathPanel() {
+  const path = LEARNING_PATHS[State.activePath];
+  if (!path || !State.graphData) return;
+
+  const metaEl = document.getElementById('path-meta');
+  if (metaEl) metaEl.textContent = path.desc;
+
+  const allTopics = State.graphData.nodes.filter(n => n.type === 'topic');
+  const stepsEl = document.getElementById('path-steps');
+  if (!stepsEl) return;
+
+  const masteredCount = path.steps.filter(id => {
+    const t = allTopics.find(n => n.id === id);
+    return t && t.status === 'mastered';
+  }).length;
+
+  stepsEl.innerHTML = path.steps.map((topicId, i) => {
+    const t = allTopics.find(n => n.id === topicId);
+    const name = t ? t.name : topicId;
+    const status = t ? (t.status || 'unknown') : 'unknown';
+    const tested = t ? t.tested : false;
+    const isMastered = status === 'mastered';
+
+    let dotColor = '#4A4A6A';
+    let dotBorder = t ? (t.color || '#607D8B') : '#607D8B';
+    if (status === 'mastered')   { dotColor = '#3fb950'; dotBorder = '#3fb950'; }
+    else if (status === 'learning')   { dotColor = '#d29922'; dotBorder = '#d29922'; }
+    else if (status === 'needs_work') { dotColor = '#f85149'; dotBorder = '#f85149'; }
+
+    const numClass = isMastered ? 'path-step-num mastered' : 'path-step-num';
+    const statusLabel = getStatusLabel(status, tested);
+
+    return `
+      <div class="path-step" onclick="navigateToNode('topic','${topicId}')">
+        <div class="${numClass}">${i + 1}</div>
+        <div class="path-step-dot" style="background:${dotColor};border-color:${dotBorder}"></div>
+        <div class="path-step-name">${name}</div>
+        <div class="path-step-status">${statusLabel}</div>
+      </div>
+    `;
+  }).join('');
+
+  // 进度摘要
+  const pct = Math.round(masteredCount / path.steps.length * 100);
+  if (metaEl) {
+    metaEl.innerHTML = `<div class="path-progress-bar"><div class="path-progress-fill" style="width:${pct}%"></div></div>
+      <div class="path-progress-label">${path.desc}</div>
+      <div class="path-mastered-count">已掌握 ${masteredCount} / ${path.steps.length}</div>`;
+  }
+}
+
+function setActivePath(intent) {
+  State.activePath = intent;
+  const ab = document.getElementById('btn-apply-path');
+  const ub = document.getElementById('btn-understand-path');
+  if (ab) ab.classList.toggle('active', intent === 'apply');
+  if (ub) ub.classList.toggle('active', intent === 'understand');
+  renderPathPanel();
 }
 
 // ============================================================
