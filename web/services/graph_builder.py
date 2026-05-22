@@ -6,6 +6,16 @@ from .vault_loader import load_areas, load_directions, load_topics
 
 logger = logging.getLogger(__name__)
 
+_VALID_STATUSES = {'mastered', 'learning', 'needs_work', 'unknown'}
+
+
+def _normalize_status(status: str, tested: bool) -> str:
+    if status not in _VALID_STATUSES:
+        status = 'unknown'
+    if status == 'unknown' and tested:
+        return 'needs_work'
+    return status
+
 
 def get_graph_data() -> Dict[str, Any]:
     areas = load_areas()
@@ -52,7 +62,8 @@ def get_graph_data() -> Dict[str, Any]:
             'type': 'topic', 'level': 3, 'area': aid, 'direction': did,
             'color': area_colors.get(aid, '#888888'),
             'difficulty': topic.get('difficulty', 3), 'importance': topic.get('importance', 3),
-            'status': topic.get('status', 'unknown'), 'tested': topic.get('tested', False),
+            'status': _normalize_status(topic.get('status', 'unknown'), topic.get('tested', False)),
+            'tested': topic.get('tested', False),
             'tags': topic.get('tags', []),
             'description': (topic.get('body', '') or '').strip().split('\n')[0][:200],
         })

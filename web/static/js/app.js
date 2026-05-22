@@ -150,12 +150,12 @@ function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
 function getStatusLabel(s, tested = false) {
-  if (s === 'unknown') return tested ? t('status.needs_work') : t('status.unknown');
+  if (s === 'needs_work' || (s === 'unknown' && tested)) return t('status.needs_work');
   return { mastered: t('status.mastered'), learning: t('status.learning') }[s] || t('status.unknown');
 }
 
 function getStatusClass(s, tested = false) {
-  if (s === 'unknown') return tested ? 'status-needs-work' : 'status-unknown';
+  if (s === 'needs_work' || (s === 'unknown' && tested)) return 'status-needs-work';
   return { mastered: 'status-mastered', learning: 'status-learning' }[s] || 'status-unknown';
 }
 
@@ -507,18 +507,18 @@ function expandDirection(dirId) {
     .attr('fill', d => {
       if (d.type === 'direction') return masteryColor(d.color, d.mastered, d.total);
       const s = d.status || 'unknown';
-      if (s === 'mastered') return '#3fb950';
-      if (s === 'learning') return '#d29922';
-      if (d.tested) return '#f85149';
+      if (s === 'mastered')   return '#3fb950';
+      if (s === 'learning')   return '#d29922';
+      if (s === 'needs_work') return '#f85149';
       return '#4A4A6A'; // 未测评：中性深色
     })
     .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.85)
     .attr('stroke', d => {
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
-      if (s === 'mastered') return '#3fb950';
-      if (s === 'learning') return '#d29922';
-      if (d.tested) return '#f85149';
+      if (s === 'mastered')   return '#3fb950';
+      if (s === 'learning')   return '#d29922';
+      if (s === 'needs_work') return '#f85149';
       return d.color; // 未测评用领域色描边，保留分类感
     })
     .attr('stroke-width', d => d.type === 'direction' ? 2 : 1.5)
@@ -1030,9 +1030,9 @@ function renderGlobalView() {
     .attr('r', d => topicRadius(d))
     .attr('fill', d => {
       const s = d.status || 'unknown';
-      if (s === 'mastered') return '#3fb950';
-      if (s === 'learning') return '#d29922';
-      if (d.tested)         return '#f85149';
+      if (s === 'mastered')   return '#3fb950';
+      if (s === 'learning')   return '#d29922';
+      if (s === 'needs_work') return '#f85149';
       return '#4A4A6A';
     })
     .attr('fill-opacity', d => {
