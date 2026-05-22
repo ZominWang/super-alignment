@@ -40,7 +40,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone <仓库地址>
+git clone https://github.com/ZominWang/super-alignment.git
 cd super-alignment
 
 # 2. 启动（首次运行自动创建虚拟环境并安装依赖）
