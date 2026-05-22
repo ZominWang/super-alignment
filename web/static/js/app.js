@@ -240,10 +240,16 @@ async function refreshGraphData() {
   try {
     const graphResp = await fetchWithTimeout('/api/graph').then(r => r.json());
     State.graphData = graphResp;
-    // 重新渲染当前层级
-    if (State.graphLevel === 'area') renderAreaLevel();
-    else if (State.graphLevel === 'direction' && State.expandedArea) expandArea(State.expandedArea);
-    else if (State.graphLevel === 'topic' && State.expandedDirection) expandDirection(State.expandedDirection);
+    // 重新渲染当前视图
+    if (State.graphView === 'global' || State.graphView === 'path') {
+      renderGlobalView();
+    } else if (State.graphLevel === 'area') {
+      renderAreaLevel();
+    } else if (State.graphLevel === 'direction' && State.expandedArea) {
+      expandArea(State.expandedArea);
+    } else if (State.graphLevel === 'topic' && State.expandedDirection) {
+      expandDirection(State.expandedDirection);
+    }
   } catch (e) {
     console.warn('Graph data refresh failed:', e);
   }
@@ -1804,17 +1810,22 @@ document.getElementById('btn-redo-diagnostic').addEventListener('click', () => {
 });
 
 // 从测评结果跳转图谱
-document.getElementById('btn-view-graph-from-diagnostic').addEventListener('click', () => {
+document.getElementById('btn-view-graph-from-diagnostic').addEventListener('click', async () => {
   hide('quiz-result-view');
   show('quiz-home-view');
   switchToTab('graph');
-  // 进入全局视图，让用户看到诊断后的整体掌握全景
-  setTimeout(() => { setGraphView('global'); }, 200);
+  // 刷新图谱数据（诊断后状态已更新），再切到全局总览
+  setTimeout(async () => {
+    setGraphView('global');
+    await refreshGraphData();
+  }, 200);
 });
-document.getElementById('btn-view-direction-graph').addEventListener('click', () => {
+document.getElementById('btn-view-direction-graph').addEventListener('click', async () => {
   const dirId = State.currentDirectionId;
   hide('direction-result-view');
   show('quiz-home-view');
+  // 刷新图谱数据后再导航，确保显示最新掌握状态
+  await refreshGraphData();
   if (dirId) navigateToNode('direction', dirId);
   else switchToTab('graph');
 });
