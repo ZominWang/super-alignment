@@ -10,3 +10,5 @@ vault_v1_backup/
 venv/
 web/data/state.json
 .claude/
+docs/feedback-assets/
+docs/*.md
