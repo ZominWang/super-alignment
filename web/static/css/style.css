@@ -1345,6 +1345,26 @@ body {
 .stat-unknown .stat-value { color: var(--text-muted); }
 .stat-total .stat-value { color: var(--accent); }
 
+.progress-next-steps {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.progress-next-steps h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.next-steps-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.next-step-chip {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.next-step-chip:hover { background: rgba(88,166,255,.15); border-color: var(--accent); color: var(--accent); }
+
 .progress-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;

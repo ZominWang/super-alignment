@@ -116,6 +116,7 @@ const TRANSLATIONS = {
     'stat.unknown':         '未测评',
     'progress.radar_title': '掌握度雷达图',
     'progress.areas_title': '大类进度',
+    'progress.next_title': '🚀 下一步推荐',
 
     // Search
     'search.found':       '找到 {n} 个相关知识点',
@@ -251,6 +252,7 @@ const TRANSLATIONS = {
     'stat.unknown':         'Not Tested',
     'progress.radar_title': 'Mastery Radar',
     'progress.areas_title': 'Area Progress',
+    'progress.next_title': '🚀 Recommended Next Steps',
 
     'search.found':       'Found {n} results',
     'search.not_found':   'No results for "{q}"',

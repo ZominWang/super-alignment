@@ -1928,7 +1928,10 @@ function drawRadar(selector, data, width, height) {
 
 async function loadProgress() {
   try {
-    const p = await fetchWithTimeout('/api/progress').then(r => r.json());
+    const [p, recs] = await Promise.all([
+      fetchWithTimeout('/api/progress').then(r => r.json()),
+      fetchWithTimeout('/api/recommendations?top_n=5').then(r => r.json()).catch(() => []),
+    ]);
 
     document.getElementById('stat-total').textContent = p.total;
     document.getElementById('stat-mastered').textContent = p.mastered;
@@ -1938,6 +1941,25 @@ async function loadProgress() {
 
     // 雷达图
     drawRadar('#progress-radar-svg', p.radar_data || [], 340, 300);
+
+    // 下一步推荐
+    const nextSection = document.getElementById('progress-next-steps');
+    const nextChips = document.getElementById('progress-next-chips');
+    if (Array.isArray(recs) && recs.length > 0) {
+      nextChips.innerHTML = recs.map(r => {
+        const name = (getLang() === 'en' && r.name_en) ? r.name_en : r.name;
+        return `<button class="next-step-chip" data-id="${escHtml(r.id)}">${escHtml(name)}</button>`;
+      }).join('');
+      nextSection.style.display = '';
+      nextChips.querySelectorAll('.next-step-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchToTab('graph');
+          setTimeout(() => navigateToNode('topic', btn.dataset.id), 200);
+        });
+      });
+    } else {
+      nextSection.style.display = 'none';
+    }
 
     // 大类进度条
     const areaList = document.getElementById('area-progress-list');
