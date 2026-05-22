@@ -641,6 +641,13 @@ body {
   background: rgba(88,166,255,.1);
   color: var(--accent);
   border: 1px solid rgba(88,166,255,.2);
+  transition: background .15s;
+}
+.node-tag-chip:hover { background: rgba(88,166,255,.22); }
+.node-tag-chip-active {
+  background: rgba(88,166,255,.3) !important;
+  border-color: var(--accent) !important;
+  font-weight: 600;
 }
 
 /* Node info — prerequisite chain */

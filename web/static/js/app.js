@@ -36,6 +36,7 @@ const State = {
   nodePositions: {},         // topicId → {x, y}，全局视图坐标
   activePathStep: null,      // 当前高亮的路径步骤 id
   filterArea: null,          // 图例点击筛选：null = 全部显示
+  filterTag: null,           // 标签点击筛选：null = 全部显示
   searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
 
   // 测评
@@ -661,14 +662,18 @@ function showNodeInfo(d) {
     badgeEl.textContent = getStatusLabel(status, d.tested);
     card.appendChild(badgeEl);
 
-    // Tags
+    // Tags — clickable to filter graph by tag
     if (d.tags && d.tags.length > 0) {
       const tagsEl = document.createElement('div');
       tagsEl.className = 'node-tags';
       d.tags.forEach(tag => {
         const chip = document.createElement('span');
-        chip.className = 'node-tag-chip';
+        const isActive = State.filterTag === tag;
+        chip.className = 'node-tag-chip' + (isActive ? ' node-tag-chip-active' : '');
         chip.textContent = tag;
+        chip.title = isActive ? '点击取消筛选' : '点击在图谱中筛选同标签节点';
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', () => filterByTag(tag));
         tagsEl.appendChild(chip);
       });
       card.appendChild(tagsEl);
@@ -784,10 +789,13 @@ function startDirectionQuizFromGraph(dirId) {
 // ── 图例筛选 ────────────────────────────────────────────────
 function filterByArea(areaId) {
   State.filterArea = (State.filterArea === areaId) ? null : areaId;
+  State.filterTag = null; // area filter replaces tag filter
   // Update legend item active state
   document.querySelectorAll('.legend-item[data-area]').forEach(el => {
     el.classList.toggle('legend-active', el.dataset.area === State.filterArea);
   });
+  const tagInd = document.getElementById('tag-filter-indicator');
+  if (tagInd) tagInd.style.display = 'none';
   applyAreaFilter();
 }
 
@@ -807,6 +815,36 @@ function applyAreaFilter() {
     const srcArea = d.source?.area;
     const tgtArea = d.target?.area;
     return (srcArea === activeArea || tgtArea === activeArea) ? 0.45 : 0.05;
+  });
+}
+
+function filterByTag(tag) {
+  // null means clear; toggling the same tag also clears
+  State.filterTag = (tag === null || State.filterTag === tag) ? null : tag;
+  State.filterArea = null; // tag filter replaces area filter
+  document.querySelectorAll('.legend-item[data-area]').forEach(el => el.classList.remove('legend-active'));
+  // Update tag filter indicator
+  const indicator = document.getElementById('tag-filter-indicator');
+  if (indicator) {
+    if (State.filterTag) {
+      indicator.textContent = `# ${State.filterTag}  ✕`;
+      indicator.style.display = '';
+    } else {
+      indicator.style.display = 'none';
+    }
+  }
+  applyTagFilter();
+}
+
+function applyTagFilter() {
+  const tag = State.filterTag;
+  if (!tag) {
+    g.selectAll('.node-g').attr('opacity', null);
+    return;
+  }
+  g.selectAll('.node-g').attr('opacity', d => {
+    if (!d || d.type !== 'topic') return 0.08;
+    return (d.tags || []).includes(tag) ? 1 : 0.08;
   });
 }
 
@@ -1099,6 +1137,7 @@ function renderGlobalView() {
   fitGraph();
   // Re-apply any active filter or search highlight after redraw
   if (State.filterArea) applyAreaFilter();
+  else if (State.filterTag) applyTagFilter();
   if (State.searchHighlightIds) applySearchHighlight(State.searchHighlightIds);
 }
 
