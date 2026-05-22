@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["chain_of_thought", "rlhf"]
 difficulty: 4
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["llm", "reasoning", "o1", "deepseek-r1", "cot-training", "prm", "orm", "slow-thinking", "rl"]
 ---

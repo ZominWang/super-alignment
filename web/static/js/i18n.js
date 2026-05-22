@@ -134,6 +134,12 @@ const TRANSLATIONS = {
     // Directions quiz card
     'dir.topics_n':       '{n} 个主题',
     'dir.questions_n':    '{n} 道题',
+
+    // Node info panel meta
+    'meta.difficulty':    '难度',
+    'meta.importance':    '重要度',
+    'node.prerequisites': '前置知识',
+    'node.leads_to':      '延伸方向',
   },
 
   en: {
@@ -252,6 +258,12 @@ const TRANSLATIONS = {
 
     'dir.topics_n':       '{n} topics',
     'dir.questions_n':    '{n} questions',
+
+    // Node info panel meta
+    'meta.difficulty':    'Difficulty',
+    'meta.importance':    'Importance',
+    'node.prerequisites': 'Prerequisites',
+    'node.leads_to':      'Leads To',
   }
 };
 

@@ -8,7 +8,7 @@ area: "application"
 direction: "agent"
 prerequisites: ["tool_use", "agent_basics"]
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["mcp", "tool-integration", "agent", "protocol", "claude", "anthropic"]
 ---

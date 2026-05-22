@@ -8,7 +8,7 @@ area: "foundations"
 direction: "ml"
 prerequisites: ["model_evaluation"]
 difficulty: 3
-importance: 4
+importance: 1
 status: "unknown"
 tags: ["ml", "ensemble", "random-forest", "boosting", "feature-engineering"]
 ---

@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_inference"
 prerequisites: ["llm_pretraining"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["llm", "quantization", "int8", "int4", "deployment"]
 ---

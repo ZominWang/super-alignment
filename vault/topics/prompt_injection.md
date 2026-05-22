@@ -8,7 +8,7 @@ area: "safety"
 direction: "ai_security"
 prerequisites: ["basic_prompting"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["safety", "prompt-injection", "jailbreak", "adversarial", "attack"]
 ---

@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["llm_evaluation"]
 difficulty: 2
-importance: 3
+importance: 1
 status: "unknown"
 tags: ["evaluation", "benchmarks", "mmlu", "hellaswag", "chatbot-arena", "leaderboard"]
 ---

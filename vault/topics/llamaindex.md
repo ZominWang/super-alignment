@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["rag_basics"]
 difficulty: 2
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["engineering", "llamaindex", "rag", "index", "query-engine"]
 ---

@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["openai_api"]
 difficulty: 1
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["ai-coding", "cursor", "claude-code", "copilot", "productivity", "engineering"]
 ---

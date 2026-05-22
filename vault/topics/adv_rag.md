@@ -8,7 +8,7 @@ area: "application"
 direction: "rag"
 prerequisites: ["rag_basics", "embeddings"]
 difficulty: 3
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["rag", "advanced-rag", "hyde", "self-rag", "reranking", "corrective-rag", "query-rewrite", "hybrid-search"]
 ---

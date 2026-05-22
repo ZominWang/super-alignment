@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["llm_pretraining"]
 difficulty: 4
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["llm", "scaling-laws", "chinchilla", "compute", "emergent"]
 ---

@@ -8,7 +8,7 @@ area: "safety"
 direction: "ai_security"
 prerequisites: ["prompt_injection"]
 difficulty: 4
-importance: 3
+importance: 2
 status: "unknown"
 tags: ["safety", "red-teaming", "adversarial", "security-testing"]
 ---

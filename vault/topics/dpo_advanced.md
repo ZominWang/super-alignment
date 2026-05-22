@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["rlhf"]
 difficulty: 4
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["llm", "dpo", "alignment", "preference-optimization", "ipo", "kto", "simpo", "offline-rl"]
 ---

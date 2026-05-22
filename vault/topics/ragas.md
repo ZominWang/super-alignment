@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["rag_basics", "llm_evaluation"]
 difficulty: 3
-importance: 4
+importance: 1
 status: "unknown"
 tags: ["evaluation", "ragas", "rag-evaluation", "faithfulness", "context-precision"]
 ---

@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["llm_evaluation"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["evaluation", "testing", "unit-test", "regression", "ci-cd"]
 ---

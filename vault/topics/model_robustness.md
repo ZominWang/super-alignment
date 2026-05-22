@@ -8,7 +8,7 @@ area: "safety"
 direction: "ai_security"
 prerequisites: ["ai_safety_basics"]
 difficulty: 3
-importance: 3
+importance: 2
 status: "unknown"
 tags: ["safety", "robustness", "adversarial-examples", "distribution-shift"]
 ---

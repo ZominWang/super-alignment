@@ -586,6 +586,100 @@ body {
 
 .node-expand-btn:hover { background: var(--bg); color: var(--text); }
 
+/* Node info — color bar */
+.node-color-bar {
+  height: 3px;
+  border-radius: 2px;
+  margin: -14px -14px 12px -14px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* Node info — meta row (difficulty / importance) */
+.node-meta-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.node-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.meta-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.meta-stars {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--warning);
+}
+
+/* Node info — tags */
+.node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.node-tag-chip {
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  background: rgba(88,166,255,.1);
+  color: var(--accent);
+  border: 1px solid rgba(88,166,255,.2);
+}
+
+/* Node info — prerequisite chain */
+.node-chain-section {
+  margin-bottom: 10px;
+}
+.node-chain-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.node-chain-item {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  margin: 2px 3px 2px 0;
+  transition: border-color .15s;
+}
+.node-chain-item:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.node-chain-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* Legend — clickable domain items */
+.legend-item[data-area] {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  transition: background .15s;
+}
+.legend-item[data-area]:hover {
+  background: var(--bg3);
+}
+.legend-item.legend-active {
+  background: var(--bg3);
+  outline: 1px solid var(--accent);
+}
+
 /* 图谱容器 */
 .graph-canvas-wrap {
   flex: 1;

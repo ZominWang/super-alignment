@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["basic_prompting"]
 difficulty: 1
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["engineering", "openai-api", "sdk", "streaming", "rate-limit"]
 ---

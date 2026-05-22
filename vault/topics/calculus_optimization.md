@@ -8,7 +8,7 @@ area: "foundations"
 direction: "math"
 prerequisites: []
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["math", "calculus", "gradient", "optimization"]
 ---

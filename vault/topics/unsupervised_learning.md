@@ -8,7 +8,7 @@ area: "foundations"
 direction: "ml"
 prerequisites: ["supervised_learning"]
 difficulty: 3
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["ml", "unsupervised", "clustering", "dimensionality-reduction"]
 ---

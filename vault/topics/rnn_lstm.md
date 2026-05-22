@@ -8,7 +8,7 @@ area: "foundations"
 direction: "deep_learning"
 prerequisites: ["neural_network_basics"]
 difficulty: 3
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["deep-learning", "rnn", "lstm", "sequence", "nlp"]
 ---

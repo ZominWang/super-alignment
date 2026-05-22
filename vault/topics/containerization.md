@@ -8,7 +8,7 @@ area: "engineering"
 direction: "mlops"
 prerequisites: ["llm_api_design"]
 difficulty: 2
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["engineering", "docker", "kubernetes", "deployment", "gpu"]
 ---

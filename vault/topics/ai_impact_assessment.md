@@ -8,7 +8,7 @@ area: "safety"
 direction: "governance"
 prerequisites: ["responsible_ai"]
 difficulty: 3
-importance: 3
+importance: 1
 status: "unknown"
 tags: ["governance", "impact-assessment", "risk", "social-impact", "aia"]
 ---

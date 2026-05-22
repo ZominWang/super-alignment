@@ -8,7 +8,7 @@ area: "safety"
 direction: "governance"
 prerequisites: ["ai_regulations"]
 difficulty: 2
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["governance", "responsible-ai", "model-card", "ethics", "transparency"]
 ---

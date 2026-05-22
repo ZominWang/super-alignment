@@ -8,7 +8,7 @@ area: "application"
 direction: "agent"
 prerequisites: ["agent_basics"]
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["agent", "tool-use", "function-calling", "api", "code-execution"]
 ---

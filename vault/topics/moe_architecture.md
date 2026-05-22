@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_arch"
 prerequisites: ["transformer_arch"]
 difficulty: 4
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["llm", "moe", "mixture-of-experts", "sparse-activation", "routing", "gpt-4", "mixtral", "deepseek"]
 ---

@@ -8,7 +8,7 @@ area: "safety"
 direction: "alignment"
 prerequisites: ["rlhf"]
 difficulty: 4
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["safety", "alignment", "value", "corrigibility", "mesa-optimization"]
 ---

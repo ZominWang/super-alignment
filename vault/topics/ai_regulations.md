@@ -8,7 +8,7 @@ area: "safety"
 direction: "governance"
 prerequisites: ["ai_safety_basics"]
 difficulty: 2
-importance: 3
+importance: 1
 status: "unknown"
 tags: ["governance", "regulation", "eu-ai-act", "policy", "compliance"]
 ---

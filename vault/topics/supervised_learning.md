@@ -8,7 +8,7 @@ area: "foundations"
 direction: "ml"
 prerequisites: ["probability_statistics", "linear_algebra"]
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["ml", "supervised", "classification", "regression"]
 ---

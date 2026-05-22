@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["rag_basics", "tool_use"]
 difficulty: 2
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["engineering", "langchain", "lcel", "chain", "agent"]
 ---

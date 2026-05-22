@@ -8,7 +8,7 @@ area: "foundations"
 direction: "math"
 prerequisites: ["probability_statistics"]
 difficulty: 3
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["math", "information-theory", "entropy", "KL-divergence"]
 ---

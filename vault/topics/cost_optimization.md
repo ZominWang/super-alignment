@@ -8,7 +8,7 @@ area: "engineering"
 direction: "mlops"
 prerequisites: ["monitoring"]
 difficulty: 3
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["engineering", "cost", "caching", "prompt-compression", "model-routing"]
 ---

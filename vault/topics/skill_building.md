@@ -8,7 +8,7 @@ area: "application"
 direction: "agent"
 prerequisites: ["agent_basics", "tool_use"]
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["skill", "agent", "automation", "reusability", "workflow", "prompt-engineering"]
 ---

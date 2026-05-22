@@ -8,7 +8,7 @@ area: "foundations"
 direction: "ml"
 prerequisites: ["supervised_learning"]
 difficulty: 2
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["ml", "evaluation", "cross-validation", "hyperparameter"]
 ---

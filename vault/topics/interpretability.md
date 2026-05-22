@@ -8,7 +8,7 @@ area: "safety"
 direction: "alignment"
 prerequisites: ["bias_fairness"]
 difficulty: 4
-importance: 3
+importance: 1
 status: "unknown"
 tags: ["safety", "interpretability", "mechanistic", "attention", "probing"]
 ---

@@ -8,7 +8,7 @@ area: "application"
 direction: "agent"
 prerequisites: ["tool_use"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["agent", "memory", "planning", "long-term", "episodic"]
 ---

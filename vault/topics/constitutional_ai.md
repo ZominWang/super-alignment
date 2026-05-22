@@ -8,7 +8,7 @@ area: "safety"
 direction: "alignment"
 prerequisites: ["value_alignment"]
 difficulty: 3
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["safety", "constitutional-ai", "anthropic", "cai", "rlaif"]
 ---

@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["benchmarks", "llm_evaluation"]
 difficulty: 3
-importance: 5
+importance: 1
 status: "unknown"
 tags: ["evaluation", "lm-eval", "benchmark", "eleutherai", "mmlu", "gsm8k", "humaneval", "open-llm-leaderboard", "cli"]
 ---

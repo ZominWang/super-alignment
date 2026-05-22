@@ -8,7 +8,7 @@ area: "safety"
 direction: "governance"
 prerequisites: ["ai_safety_basics"]
 difficulty: 2
-importance: 4
+importance: 2
 status: "unknown"
 tags: ["governance", "privacy", "gdpr", "pii", "data-protection"]
 ---

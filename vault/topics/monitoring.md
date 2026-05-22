@@ -8,7 +8,7 @@ area: "engineering"
 direction: "mlops"
 prerequisites: ["llm_api_design"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["engineering", "monitoring", "tracing", "observability", "langfuse"]
 ---

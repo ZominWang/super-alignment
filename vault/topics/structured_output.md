@@ -8,7 +8,7 @@ area: "application"
 direction: "prompt_eng"
 prerequisites: ["chain_of_thought"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["prompting", "structured-output", "json", "prompt-optimization", "DSPy"]
 ---

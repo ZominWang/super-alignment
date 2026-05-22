@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["llm_capabilities", "openai_api"]
 difficulty: 2
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["model-selection", "gpt", "claude", "gemini", "llama", "cost", "benchmark", "engineering"]
 ---

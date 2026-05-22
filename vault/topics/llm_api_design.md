@@ -8,7 +8,7 @@ area: "engineering"
 direction: "mlops"
 prerequisites: ["openai_api"]
 difficulty: 2
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["engineering", "api-design", "rest", "streaming", "async"]
 ---

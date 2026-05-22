@@ -35,6 +35,8 @@ const State = {
   activePath: 'apply',       // 'apply' | 'understand'
   nodePositions: {},         // topicId → {x, y}，全局视图坐标
   activePathStep: null,      // 当前高亮的路径步骤 id
+  filterArea: null,          // 图例点击筛选：null = 全部显示
+  searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
 
   // 测评
   quizMode: null,            // 'diagnostic' | 'direction'
@@ -501,7 +503,7 @@ function expandDirection(dirId) {
     });
 
   node.append('circle')
-    .attr('r', d => d.type === 'direction' ? DIR_R : TOPIC_R)
+    .attr('r', d => d.type === 'direction' ? DIR_R : (5 + (d.importance || 3) * 2))
     .attr('fill', d => {
       if (d.type === 'direction') return masteryColor(d.color, d.mastered, d.total);
       const s = d.status || 'unknown';
@@ -559,48 +561,152 @@ function resetToAreas() {
 
 function showNodeInfo(d) {
   const panel = document.getElementById('node-info-panel');
-  const typeLabel = t('type.' + d.type) || d.type;
-  const displayName = entityName(d);
-  const displayNameAlt = (getLang() === 'en') ? (d.name || '') : (d.name_en || '');
-  let html = `
-    <div class="node-info-card">
-      <div class="node-info-type">${escHtml(typeLabel)}</div>
-      <div class="node-info-name">${escHtml(displayName)}</div>
-      <div class="node-info-name-en">${escHtml(displayNameAlt)}</div>
-      <div class="node-info-desc">${escHtml(d.description || '')}</div>
-  `;
-
-  if (d.type === 'topic') {
-    const status = d.status || 'unknown';
-    html += `<span class="node-status-badge ${getStatusClass(status, d.tested)}">${getStatusLabel(status, d.tested)}</span>`;
-    html += `<br><button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_topic'))}</button>`;
-    if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" data-action="navigate">${escHtml(t('btn.locate'))}</button>`;
-    }
-  } else if (d.type === 'direction') {
-    const totalTopics = d.topic_count || d.total || 0;
-    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">${escHtml(t('node.topics_in', {n: totalTopics}))}</div>`;
-    html += `<button class="node-action-btn" data-action="dir-quiz">${escHtml(t('btn.quiz_dir'))}</button>`;
-    if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" data-action="view-dir-global">${escHtml(t('btn.view_topics'))}</button>`;
-    } else {
-      html += `<button class="node-action-btn node-expand-btn" data-action="expand-dir">${escHtml(t('btn.expand_dir'))}</button>`;
-    }
-  } else if (d.type === 'area') {
-    const totalDirs = d.direction_count || 3;
-    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">${escHtml(t('node.dirs_in', {n: totalDirs}))}</div>`;
-    if (State.graphView === 'global') {
-      html += `<button class="node-action-btn node-expand-btn" data-action="view-area-global">${escHtml(t('btn.browse_area'))}</button>`;
-    } else {
-      html += `<button class="node-action-btn node-expand-btn" data-action="expand-area">${escHtml(t('btn.expand_area'))}</button>`;
-    }
+  if (State.graphView !== 'path') {
+    panel.classList.remove('hidden');
+    document.getElementById('path-panel').classList.add('hidden');
   }
 
-  html += '</div>';
-  panel.innerHTML = html;
+  const card = document.createElement('div');
+  card.className = 'node-info-card';
 
-  // 按钮事件：通过 data-action 委托，避免 onclick 中拼接 id
-  panel.querySelector('.node-info-card').addEventListener('click', e => {
+  // Domain color bar
+  if (d.color) {
+    const bar = document.createElement('div');
+    bar.className = 'node-color-bar';
+    bar.style.background = d.color;
+    card.appendChild(bar);
+  }
+
+  // Type label
+  const typeEl = document.createElement('div');
+  typeEl.className = 'node-info-type';
+  typeEl.textContent = t('type.' + d.type) || d.type;
+  card.appendChild(typeEl);
+
+  // Name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'node-info-name';
+  nameEl.textContent = entityName(d);
+  card.appendChild(nameEl);
+
+  // Alt name
+  const altName = getLang() === 'en' ? (d.name || '') : (d.name_en || '');
+  if (altName) {
+    const altEl = document.createElement('div');
+    altEl.className = 'node-info-name-en';
+    altEl.textContent = altName;
+    card.appendChild(altEl);
+  }
+
+  // Description
+  if (d.description) {
+    const descEl = document.createElement('div');
+    descEl.className = 'node-info-desc';
+    descEl.textContent = d.description;
+    card.appendChild(descEl);
+  }
+
+  if (d.type === 'topic') {
+    // Difficulty + Importance stars
+    const diff = Math.max(1, Math.min(5, d.difficulty || 3));
+    const imp  = Math.max(1, Math.min(5, d.importance || 3));
+    const metaRow = document.createElement('div');
+    metaRow.className = 'node-meta-row';
+    const mkStars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+    const diffEl = document.createElement('span');
+    diffEl.className = 'node-meta-item';
+    diffEl.innerHTML = `<span class="meta-label">${t('meta.difficulty')}</span> <span class="meta-stars">${mkStars(diff)}</span>`;
+    const impEl = document.createElement('span');
+    impEl.className = 'node-meta-item';
+    impEl.innerHTML = `<span class="meta-label">${t('meta.importance')}</span> <span class="meta-stars">${mkStars(imp)}</span>`;
+    metaRow.appendChild(diffEl);
+    metaRow.appendChild(impEl);
+    card.appendChild(metaRow);
+
+    // Status badge
+    const status = d.status || 'unknown';
+    const badgeEl = document.createElement('span');
+    badgeEl.className = `node-status-badge ${getStatusClass(status, d.tested)}`;
+    badgeEl.textContent = getStatusLabel(status, d.tested);
+    card.appendChild(badgeEl);
+
+    // Tags
+    if (d.tags && d.tags.length > 0) {
+      const tagsEl = document.createElement('div');
+      tagsEl.className = 'node-tags';
+      d.tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'node-tag-chip';
+        chip.textContent = tag;
+        tagsEl.appendChild(chip);
+      });
+      card.appendChild(tagsEl);
+    }
+
+    // Prerequisite + dependent chain
+    const allLinks = State.graphData?.links || [];
+    const allNodes = State.graphData?.nodes || [];
+    const nodeById = id => allNodes.find(n => n.id === id);
+    const resolveId = v => typeof v === 'object' ? v.id : v;
+
+    const prereqIds = allLinks
+      .filter(l => l.type === 'prerequisite' && resolveId(l.target) === d.id)
+      .map(l => resolveId(l.source));
+    const dependIds = allLinks
+      .filter(l => l.type === 'prerequisite' && resolveId(l.source) === d.id)
+      .map(l => resolveId(l.target));
+
+    const mkChain = (ids, titleKey) => {
+      if (!ids.length) return;
+      const sec = document.createElement('div');
+      sec.className = 'node-chain-section';
+      const title = document.createElement('div');
+      title.className = 'node-chain-title';
+      title.textContent = t(titleKey);
+      sec.appendChild(title);
+      ids.slice(0, 5).forEach(nid => {
+        const n = nodeById(nid);
+        const item = document.createElement('div');
+        item.className = 'node-chain-item';
+        item.textContent = n ? entityName(n) : nid;
+        item.addEventListener('click', () => navigateToNode('topic', nid));
+        sec.appendChild(item);
+      });
+      if (ids.length > 5) {
+        const more = document.createElement('div');
+        more.className = 'node-chain-more';
+        more.textContent = `+${ids.length - 5}`;
+        sec.appendChild(more);
+      }
+      card.appendChild(sec);
+    };
+    mkChain(prereqIds, 'node.prerequisites');
+    mkChain(dependIds, 'node.leads_to');
+
+    // Action buttons
+    _addBtn(card, 'node-action-btn', 'quiz', t('btn.quiz_topic'));
+    if (State.graphView === 'global') _addBtn(card, 'node-action-btn node-expand-btn', 'navigate', t('btn.locate'));
+
+  } else if (d.type === 'direction') {
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:10px;';
+    countEl.textContent = t('node.topics_in', {n: d.topic_count || d.total || 0});
+    card.appendChild(countEl);
+    _addBtn(card, 'node-action-btn', 'dir-quiz', t('btn.quiz_dir'));
+    const viewAction = State.graphView === 'global' ? 'view-dir-global' : 'expand-dir';
+    _addBtn(card, 'node-action-btn node-expand-btn', viewAction, t(State.graphView === 'global' ? 'btn.view_topics' : 'btn.expand_dir'));
+
+  } else if (d.type === 'area') {
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:10px;';
+    countEl.textContent = t('node.dirs_in', {n: d.direction_count || 3});
+    card.appendChild(countEl);
+    const viewAction = State.graphView === 'global' ? 'view-area-global' : 'expand-area';
+    _addBtn(card, 'node-action-btn node-expand-btn', viewAction, t(State.graphView === 'global' ? 'btn.browse_area' : 'btn.expand_area'));
+  }
+
+  // Event delegation for data-action buttons
+  card.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     switch (btn.dataset.action) {
@@ -614,12 +720,22 @@ function showNodeInfo(d) {
     }
   });
 
-  // 课程探索按钮
+  // Course explore button
   const courseBtn = document.createElement('button');
   courseBtn.className = 'btn-course-explore';
   courseBtn.textContent = t('btn.course');
-  courseBtn.onclick = () => openCourseExplore(d.type, d.id, entityName(d));
-  panel.querySelector('.node-info-card').appendChild(courseBtn);
+  courseBtn.addEventListener('click', () => openCourseExplore(d.type, d.id, entityName(d)));
+  card.appendChild(courseBtn);
+
+  panel.replaceChildren(card);
+}
+
+function _addBtn(parent, cls, action, label) {
+  const btn = document.createElement('button');
+  btn.className = cls;
+  btn.dataset.action = action;
+  btn.textContent = label;
+  parent.appendChild(btn);
 }
 
 function startTopicQuiz(topicId) {
@@ -632,6 +748,50 @@ function startTopicQuiz(topicId) {
 function startDirectionQuizFromGraph(dirId) {
   switchToTab('quiz');
   startDirectionQuiz(dirId);
+}
+
+// ── 图例筛选 ────────────────────────────────────────────────
+function filterByArea(areaId) {
+  State.filterArea = (State.filterArea === areaId) ? null : areaId;
+  // Update legend item active state
+  document.querySelectorAll('.legend-item[data-area]').forEach(el => {
+    el.classList.toggle('legend-active', el.dataset.area === State.filterArea);
+  });
+  applyAreaFilter();
+}
+
+function applyAreaFilter() {
+  const activeArea = State.filterArea;
+  if (!activeArea) {
+    g.selectAll('.node-g, .g-prereq-links line').attr('opacity', null);
+    return;
+  }
+  g.selectAll('.node-g').attr('opacity', d => {
+    if (!d) return 0.12;
+    const nodeArea = d.area || d.id;
+    return nodeArea === activeArea ? 1 : 0.12;
+  });
+  g.selectAll('.g-prereq-links line').attr('opacity', d => {
+    if (!d) return 0.05;
+    const srcArea = d.source?.area;
+    const tgtArea = d.target?.area;
+    return (srcArea === activeArea || tgtArea === activeArea) ? 0.45 : 0.05;
+  });
+}
+
+// ── 搜索高亮叠加 ─────────────────────────────────────────────
+function applySearchHighlight(matchIds) {
+  State.searchHighlightIds = matchIds;
+  if (!matchIds || matchIds.size === 0) {
+    g.selectAll('.node-g').attr('opacity', null);
+    return;
+  }
+  g.selectAll('.node-g').attr('opacity', d => d && matchIds.has(d.id) ? 1 : 0.10);
+}
+
+function clearSearchHighlight() {
+  State.searchHighlightIds = null;
+  g.selectAll('.node-g').attr('opacity', null);
 }
 
 function updateLayerDots(level) {
@@ -863,6 +1023,8 @@ function renderGlobalView() {
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
 
   topicSel.append('title').text(d => entityName(d) || '');
+  // Invisible larger circle for easier click/touch targeting
+  topicSel.append('circle').attr('r', 18).attr('fill', 'transparent').attr('stroke', 'none');
   topicSel.append('circle')
     .attr('r', d => topicRadius(d))
     .attr('fill', d => {
@@ -1729,6 +1891,10 @@ async function runSearch(q) {
 
     body.innerHTML = results.map(r => renderSearchResult(r)).join('');
 
+    // Highlight matched nodes in the graph
+    const matchIds = new Set(results.map(r => r.id));
+    applySearchHighlight(matchIds);
+
     // 绑定点击事件
     body.querySelectorAll('.search-result-item').forEach(el => {
       el.addEventListener('click', () => {
@@ -1794,7 +1960,7 @@ function navigateToNode(type, id) {
     if (db) db.classList.add('active');
   }
 
-  const STEP = 120;
+  const STEP = 60;
 
   if (type === 'area') {
     renderAreaLevel();
@@ -1836,6 +2002,7 @@ function closeSearch() {
   document.getElementById('search-results-panel').classList.add('hidden');
   document.getElementById('search-overlay').classList.add('hidden');
   document.getElementById('search-input').value = '';
+  clearSearchHighlight();
 }
 
 // ============================================================

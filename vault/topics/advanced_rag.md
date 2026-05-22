@@ -8,7 +8,7 @@ area: "application"
 direction: "rag"
 prerequisites: ["rag_basics", "vector_databases"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["rag", "reranking", "query-rewriting", "advanced-rag", "HyDE"]
 ---

@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["rlhf", "chain_of_thought"]
 difficulty: 5
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["llm", "grpo", "rl", "deepseek-r1", "reasoning", "online-rl", "policy-optimization", "no-value-model"]
 ---

@@ -8,7 +8,7 @@ area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["peft_lora"]
 difficulty: 2
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["engineering", "huggingface", "transformers", "datasets", "model-hub"]
 ---

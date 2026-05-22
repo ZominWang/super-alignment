@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["sft"]
 difficulty: 3
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["llm", "lora", "peft", "fine-tuning", "adapter"]
 ---

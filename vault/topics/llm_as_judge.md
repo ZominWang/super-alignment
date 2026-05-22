@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["llm_evaluation"]
 difficulty: 3
-importance: 5
+importance: 3
 status: "unknown"
 tags: ["evaluation", "llm-judge", "mt-bench", "chatbot-arena", "elo", "position-bias", "verbosity-bias"]
 ---

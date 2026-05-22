@@ -8,7 +8,7 @@ area: "safety"
 direction: "alignment"
 prerequisites: ["model_evaluation"]
 difficulty: 3
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["safety", "bias", "fairness", "discrimination", "debiasing"]
 ---

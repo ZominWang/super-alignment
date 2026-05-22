@@ -8,7 +8,7 @@ area: "engineering"
 direction: "eval_quality"
 prerequisites: ["basic_prompting"]
 difficulty: 3
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["evaluation", "llm-judge", "metrics", "human-eval", "evals"]
 ---

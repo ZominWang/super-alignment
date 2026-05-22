@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_inference"
 prerequisites: ["transformer_arch"]
 difficulty: 4
-importance: 4
+importance: 3
 status: "unknown"
 tags: ["llm", "kv-cache", "inference", "vllm", "continuous-batching"]
 ---

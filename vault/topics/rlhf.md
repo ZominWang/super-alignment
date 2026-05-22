@@ -8,7 +8,7 @@ area: "llm"
 direction: "llm_training"
 prerequisites: ["sft"]
 difficulty: 4
-importance: 5
+importance: 4
 status: "unknown"
 tags: ["llm", "rlhf", "alignment", "ppo", "reward-model", "dpo"]
 ---
