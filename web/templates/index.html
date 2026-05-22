@@ -25,6 +25,7 @@
       <button class="search-clear" id="search-clear" title="清除">✕</button>
     </div>
     <div class="progress-badge" id="topbar-badge">加载中...</div>
+    <button class="theme-toggle-btn" id="theme-toggle" title="切换日/夜模式">☀</button>
   </div>
 </div>
 
@@ -89,22 +90,34 @@
   <div class="tab-panel active" id="panel-graph">
     <div class="graph-sidebar">
       <div class="sidebar-header">
-        层级视图
+        知识图谱
         <div class="layer-indicator">
           <div class="layer-dot active" id="ld-1" title="大类"></div>
           <div class="layer-dot" id="ld-2" title="方向"></div>
           <div class="layer-dot" id="ld-3" title="主题"></div>
         </div>
       </div>
+      <div class="view-toggle-bar">
+        <button class="view-toggle-btn active" id="btn-global-view" onclick="setGraphView('global')">全局总览</button>
+        <button class="view-toggle-btn" id="btn-domain-view" onclick="setGraphView('domain')">领域浏览</button>
+      </div>
       <div class="graph-legend">
+        <div class="legend-group-title">知识域</div>
         <div class="legend-item"><div class="legend-dot" style="background:#4A90E2"></div>基础理论</div>
         <div class="legend-item"><div class="legend-dot" style="background:#D0021B"></div>大语言模型</div>
         <div class="legend-item"><div class="legend-dot" style="background:#9013FE"></div>应用技术</div>
         <div class="legend-item"><div class="legend-dot" style="background:#417505"></div>工程实践</div>
         <div class="legend-item"><div class="legend-dot" style="background:#607D8B"></div>安全与对齐</div>
+        <div class="legend-sep"></div>
+        <div class="legend-group-title">主题掌握状态</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>已掌握</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>学习中</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div>需要加强</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4A4A6A;border:1px solid #607D8B"></div>未测评</div>
+        <div class="legend-ring-note">○ 外环弧度 = 聚合掌握进度</div>
       </div>
       <div class="node-info-panel" id="node-info-panel">
-        <div class="node-info-empty">点击节点查看详情<br><br>点击大类 → 展开方向<br>点击方向 → 展开主题<br><br><span style="color:var(--success)">●</span> 绿色 = 已掌握　<span style="color:var(--warning)">●</span> 黄色 = 学习中</div>
+        <div class="node-info-empty">点击节点查看详情<br><br><strong>全局总览</strong>：看 5 大域 + 15 方向全貌<br><strong>领域浏览</strong>：逐层展开到具体主题</div>
       </div>
     </div>
     <div class="graph-canvas-wrap">

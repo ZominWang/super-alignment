@@ -19,6 +19,22 @@
   --shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
+/* 日间主题 */
+[data-theme="light"] {
+  --bg: #f0f6fc;
+  --bg2: #ffffff;
+  --bg3: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --accent: #0969da;
+  --accent2: #8250df;
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --danger: #cf222e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -96,6 +112,20 @@ body {
 
 .progress-badge strong { color: var(--success); }
 
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  width: 32px; height: 32px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover { background: var(--bg3); color: var(--text); }
+
 /* ============================================================
    主内容区
    ============================================================ */
@@ -157,12 +187,39 @@ body {
 
 .layer-dot.active { background: var(--accent); }
 
+.view-toggle-bar {
+  display: flex;
+  padding: 8px 12px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.view-toggle-btn {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .18s;
+}
+.view-toggle-btn:hover { background: var(--bg3); color: var(--text); }
+.view-toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
 .graph-legend {
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .legend-item {
@@ -177,6 +234,27 @@ body {
   width: 10px; height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.legend-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}
+
+.legend-group-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.legend-ring-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  opacity: 0.7;
 }
 
 .node-info-panel {
@@ -328,16 +406,17 @@ body {
 .node-circle { cursor: pointer; stroke-width: 2; }
 .node-circle:hover { stroke-width: 3; filter: brightness(1.2); }
 .node-label {
-  fill: #e6edf3;
+  fill: #fff;
   font-size: 11px;
   pointer-events: none;
   text-anchor: middle;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
 }
 .node-label-area { font-size: 13px; font-weight: 600; }
 .node-label-direction { font-size: 11px; font-weight: 500; }
 
 .link-line {
-  stroke: #30363d;
+  stroke: var(--border);
   stroke-width: 1.5;
   stroke-opacity: .6;
 }

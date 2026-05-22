@@ -11,6 +11,7 @@
 
 const State = {
   graphLevel: 'area',        // 'area' | 'direction' | 'topic'
+  graphView: 'global',       // 'global' | 'domain'
   expandedArea: null,        // 当前展开的 area id
   expandedDirection: null,   // 当前展开的 direction id
   graphData: null,           // 完整图谱数据
@@ -38,13 +39,19 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
     if (btn.dataset.tab === 'progress') loadProgress();
     if (btn.dataset.tab === 'graph' && svg) {
-      // 切回图谱 tab 时修正尺寸（曾经在 display:none 状态下测量可能为 0）
       requestAnimationFrame(() => {
         const wrap = document.getElementById('graph-svg').parentElement;
-        const W = wrap.clientWidth, H = wrap.clientHeight;
-        if (W > 0 && H > 0) {
-          svg.attr('width', W).attr('height', H);
-          if (simulation) simulation.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.1).restart();
+        const nW = wrap.clientWidth, nH = wrap.clientHeight;
+        if (nW > 0 && nH > 0) {
+          svg.attr('width', nW).attr('height', nH);
+          if (State.graphView === 'global') {
+            renderGlobalView();
+          } else if (State.graphLevel === 'area') {
+            renderAreaLevel();
+          } else if (simulation) {
+            simulation.force('center', d3.forceCenter(nW / 2, nH / 2)).alpha(0.1).restart();
+            setTimeout(fitGraph, 300);
+          }
         }
       });
     }
@@ -95,7 +102,6 @@ async function init() {
     State.directions = dirsResp;
     State.areas = areasResp;
 
-    // requestAnimationFrame 确保 DOM 布局完成后再读取容器尺寸
     requestAnimationFrame(() => initGraph());
     renderDirectionsGrid();
     const progress = await updateTopbarBadge();
@@ -136,10 +142,17 @@ function switchToTab(tabName) {
   if (tabName === 'graph' && svg) {
     requestAnimationFrame(() => {
       const wrap = document.getElementById('graph-svg').parentElement;
-      const W = wrap.clientWidth, H = wrap.clientHeight;
-      if (W > 0 && H > 0) {
-        svg.attr('width', W).attr('height', H);
-        if (simulation) simulation.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.1).restart();
+      const nW = wrap.clientWidth, nH = wrap.clientHeight;
+      if (nW > 0 && nH > 0) {
+        svg.attr('width', nW).attr('height', nH);
+        if (State.graphView === 'global') {
+          renderGlobalView();
+        } else if (State.graphLevel === 'area') {
+          renderAreaLevel();
+        } else if (simulation) {
+          simulation.force('center', d3.forceCenter(nW / 2, nH / 2)).alpha(0.1).restart();
+          setTimeout(fitGraph, 300);
+        }
       }
     });
   }
@@ -181,15 +194,20 @@ function initGraph() {
   svg.call(zoomBehavior);
   g = svg.append('g');
 
-  renderAreaLevel();
+  renderGlobalView();
 
-  // 监听容器尺寸变化（窗口缩放、侧栏展开等）
   const ro = new ResizeObserver(entries => {
     const e = entries[0];
     const nW = e.contentRect.width, nH = e.contentRect.height;
     if (nW > 0 && nH > 0) {
       svg.attr('width', nW).attr('height', nH);
-      if (simulation) simulation.force('center', d3.forceCenter(nW / 2, nH / 2)).alpha(0.2).restart();
+      if (State.graphView === 'global') {
+        renderGlobalView();
+      } else if (State.graphLevel === 'area') {
+        renderAreaLevel();
+      } else if (simulation) {
+        simulation.force('center', d3.forceCenter(nW / 2, nH / 2)).alpha(0.2).restart();
+      }
     }
   });
   ro.observe(wrap);
@@ -207,53 +225,51 @@ function renderAreaLevel() {
   updateLayerDots(1);
   updateBreadcrumb([]);
   clearGraph();
+  if (simulation) { simulation.stop(); simulation = null; }
 
   const areas = State.graphData.nodes.filter(n => n.type === 'area');
-  const wrap = document.getElementById('graph-svg').parentElement;
-  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const W = +svg.attr('width');
+  const H = +svg.attr('height');
+  if (!W || !H) return;
 
-  const nodes = areas.map(a => ({ ...a, x: W / 2, y: H / 2 }));
+  const n = areas.length;
+  const r = Math.min(W, H) * 0.3;
+  const cx = W / 2, cy = H / 2;
 
-  simulation = d3.forceSimulation(nodes)
-    .force('charge', d3.forceManyBody().strength(-400))
-    .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(AREA_R + 20))
-    .on('tick', ticked);
+  // 固定圆形布局，不使用力仿真
+  const nodes = areas.map((a, i) => {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    return { ...a, x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
 
   const node = g.selectAll('.node-g')
-    .data(nodes)
-    .join('g')
+    .data(nodes).join('g')
     .attr('class', 'node-g')
     .style('cursor', 'pointer')
-    .on('click', (e, d) => {
-      e.stopPropagation();
-      showNodeInfo(d);
-      expandArea(d.id);
-    });
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); expandArea(d.id); });
 
   node.append('circle')
     .attr('r', AREA_R)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', 0.88)
-    .attr('stroke', d => d.mastered > 0 ? '#3fb950' : '#fff')
-    .attr('stroke-width', d => d.mastered > 0 ? 2.5 : 1.5)
+    .attr('fill-opacity', 0.9)
+    .attr('stroke', d => d.color)
+    .attr('stroke-width', 2.5)
     .attr('class', 'node-circle');
 
-  node.append('text')
-    .attr('dy', '-8')
-    .attr('class', 'node-label node-label-area')
+  node.append('path')
+    .attr('d', d => makeRingPath(d, AREA_R))
+    .attr('fill', '#3fb950').attr('opacity', 0.9);
+
+  node.append('text').attr('dy', '-6')
+    .attr('class', 'node-label node-label-area').style('font-size', '18px')
     .text(d => d.icon || '');
 
-  node.append('text')
-    .attr('dy', '12')
+  node.append('text').attr('dy', '14')
     .attr('class', 'node-label node-label-area')
     .text(d => d.name);
 
-  function ticked() {
-    node.attr('transform', d => `translate(${d.x},${d.y})`);
-  }
-
-  resetZoom();
+  fitGraph();
 }
 
 function expandArea(areaId) {
@@ -304,13 +320,18 @@ function expandArea(areaId) {
     .attr('r', d => d.type === 'area' ? AREA_R : DIR_R)
     .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
     .attr('fill-opacity', d => d.type === 'area' ? 0.95 : 0.82)
-    .attr('stroke', d => d.mastered > 0 ? '#3fb950' : '#fff')
-    .attr('stroke-width', d => d.mastered > 0 ? 2.5 : (d.type === 'area' ? 2 : 1.5))
+    .attr('stroke', d => d.color)
+    .attr('stroke-width', d => d.type === 'area' ? 2.5 : 1.5)
     .attr('class', 'node-circle');
 
+  node.append('path')
+    .attr('d', d => makeRingPath(d, d.type === 'area' ? AREA_R : DIR_R))
+    .attr('fill', '#3fb950').attr('opacity', 0.9);
+
   node.append('text')
-    .attr('dy', d => d.type === 'area' ? '-8' : '0')
+    .attr('dy', d => d.type === 'area' ? '-6' : '4')
     .attr('class', d => `node-label ${d.type === 'area' ? 'node-label-area' : 'node-label-direction'}`)
+    .style('font-size', d => d.type === 'area' ? '18px' : '11px')
     .text(d => d.type === 'area' ? (d.icon || d.name) : d.name);
 
   function ticked() {
@@ -319,7 +340,7 @@ function expandArea(areaId) {
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   }
 
-  resetZoom();
+  setTimeout(fitGraph, 300);
 }
 
 function expandDirection(dirId) {
@@ -389,19 +410,26 @@ function expandDirection(dirId) {
       const s = d.status || 'unknown';
       if (s === 'mastered') return '#3fb950';
       if (s === 'learning') return '#d29922';
-      if (d.tested) return d3.interpolateRgb(d.color, '#f85149')(0.3); // 测评过但未掌握
-      return d.color;
+      if (d.tested) return '#f85149';
+      return '#4A4A6A'; // 未测评：中性深色
     })
-    .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.72)
+    .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.85)
     .attr('stroke', d => {
+      if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
       if (s === 'mastered') return '#3fb950';
       if (s === 'learning') return '#d29922';
-      if (d.type === 'topic' && d.tested) return '#f85149';
-      return d.type === 'direction' && d.mastered > 0 ? '#3fb950' : '#fff';
+      if (d.tested) return '#f85149';
+      return d.color; // 未测评用领域色描边，保留分类感
     })
-    .attr('stroke-width', d => (d.status === 'mastered' || (d.type === 'topic' && d.tested)) ? 2 : 1.5)
+    .attr('stroke-width', d => d.type === 'direction' ? 2 : 1.5)
     .attr('class', 'node-circle');
+
+  // 方向中心节点也显示进度环
+  node.filter(d => d.type === 'direction')
+    .append('path')
+    .attr('d', d => makeRingPath(d, DIR_R))
+    .attr('fill', '#3fb950').attr('opacity', 0.9);
 
   node.append('text')
     .attr('dy', d => d.type === 'direction' ? '4' : '20')
@@ -419,13 +447,17 @@ function expandDirection(dirId) {
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   }
 
-  resetZoom();
+  setTimeout(fitGraph, 300);
 }
 
 function resetToAreas() {
   document.getElementById('node-info-panel').innerHTML =
-    '<div class="node-info-empty">点击节点查看详情<br><br>默认显示 5 个大类<br>点击大类展开方向<br>点击方向展开主题</div>';
-  renderAreaLevel();
+    '<div class="node-info-empty">点击节点查看详情<br><br><strong>全局总览</strong>：看 5 大域 + 15 方向全貌<br><strong>领域浏览</strong>：逐层展开到具体主题</div>';
+  if (State.graphView === 'global') {
+    renderGlobalView();
+  } else {
+    renderAreaLevel();
+  }
 }
 
 function showNodeInfo(d) {
@@ -442,18 +474,24 @@ function showNodeInfo(d) {
   if (d.type === 'topic') {
     const status = d.status || 'unknown';
     html += `<span class="node-status-badge ${getStatusClass(status, d.tested)}">${getStatusLabel(status, d.tested)}</span>`;
-    html += `<br>
-      <button class="node-action-btn" onclick="startTopicQuiz('${d.id}')">开始测评</button>
-    `;
+    html += `<br><button class="node-action-btn" onclick="startTopicQuiz('${d.id}')">测评本方向（12题）</button>`;
   } else if (d.type === 'direction') {
     const totalTopics = d.topic_count || d.total || 0;
     html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">包含 ${totalTopics} 个主题</div>`;
-    html += `<button class="node-action-btn" onclick="startDirectionQuizFromGraph('${d.id}')">测评此方向 →</button>`;
-    html += `<button class="node-action-btn node-expand-btn" onclick="expandDirection('${d.id}')">展开主题图</button>`;
+    html += `<button class="node-action-btn" onclick="startDirectionQuizFromGraph('${d.id}')">测评此方向（12题）→</button>`;
+    if (State.graphView === 'global') {
+      html += `<button class="node-action-btn node-expand-btn" onclick="setGraphView('domain'); setTimeout(()=>expandDirection('${d.id}'),50)">查看主题图</button>`;
+    } else {
+      html += `<button class="node-action-btn node-expand-btn" onclick="expandDirection('${d.id}')">查看主题图</button>`;
+    }
   } else if (d.type === 'area') {
     const totalDirs = d.direction_count || 3;
     html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">包含 ${totalDirs} 个方向</div>`;
-    html += `<button class="node-action-btn node-expand-btn" onclick="expandArea('${d.id}')">展开方向图</button>`;
+    if (State.graphView === 'global') {
+      html += `<button class="node-action-btn node-expand-btn" onclick="setGraphView('domain'); setTimeout(()=>expandArea('${d.id}'),50)">浏览此领域 →</button>`;
+    } else {
+      html += `<button class="node-action-btn node-expand-btn" onclick="expandArea('${d.id}')">展开方向图</button>`;
+    }
   }
 
   html += '</div>';
@@ -500,8 +538,203 @@ function updateBreadcrumb(crumbs) {
 // 缩放控制
 function zoomIn() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1.3); }
 function zoomOut() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1 / 1.3); }
-function resetZoom() {
-  svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity.translate(0, 0).scale(1));
+function resetZoom() { fitGraph(); }
+
+// 计算节点包围盒并自动居中缩放到视口
+function fitGraph() {
+  if (!svg || !g) return;
+  const nodes = g.selectAll('.node-g');
+  if (nodes.empty()) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.each(function(d) {
+    if (!d || d.x == null || d.y == null) return;
+    const r = d.type === 'area' ? AREA_R + 8 : d.type === 'direction' ? DIR_R + 6 : TOPIC_R + 4;
+    minX = Math.min(minX, d.x - r);
+    maxX = Math.max(maxX, d.x + r);
+    minY = Math.min(minY, d.y - r);
+    maxY = Math.max(maxY, d.y + r);
+  });
+
+  if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
+
+  const W = +svg.attr('width');
+  const H = +svg.attr('height');
+  if (!W || !H) return;
+
+  const pad = 64;
+  const scale = Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxY - minY), 2.5);
+  const tx = (W - scale * (minX + maxX)) / 2;
+  const ty = (H - scale * (minY + maxY)) / 2;
+
+  svg.transition().duration(450).call(
+    zoomBehavior.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+}
+
+// 生成掌握进度环路径（外弧，顺时针）
+function makeRingPath(d, r) {
+  if (!d || !d.total || !d.mastered || d.mastered <= 0) return '';
+  const pct = Math.min(d.mastered / d.total, 1);
+  if (pct <= 0) return '';
+  try {
+    return d3.arc()
+      .innerRadius(r + 3).outerRadius(r + 7)
+      .startAngle(-Math.PI / 2)
+      .endAngle(-Math.PI / 2 + pct * 2 * Math.PI)();
+  } catch (e) { return ''; }
+}
+
+// ============================================================
+// 全局总览视图（所有 Area + Direction 同屏显示）
+// ============================================================
+
+function renderGlobalView() {
+  State.graphLevel = 'area';
+  State.expandedArea = null;
+  State.expandedDirection = null;
+  State.graphView = 'global';
+  updateLayerDots(1);
+  updateBreadcrumb([]);
+  clearGraph();
+  if (simulation) { simulation.stop(); simulation = null; }
+
+  const W = +svg.attr('width');
+  const H = +svg.attr('height');
+  if (!W || !H) return;
+
+  const cx = W / 2, cy = H / 2;
+  const allAreas = State.graphData.nodes.filter(n => n.type === 'area');
+  const allDirs  = State.graphData.nodes.filter(n => n.type === 'direction');
+
+  const n = allAreas.length;
+  const areaOrbit = Math.min(W, H) * 0.27;
+  const dirOrbit  = Math.min(areaOrbit * 0.44, 88);
+  const territoryR = dirOrbit + DIR_R + 16;
+
+  // 计算 Area 固定位置
+  const areaPos = {};
+  const areaNodes = allAreas.map((a, i) => {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    const x = cx + areaOrbit * Math.cos(angle);
+    const y = cy + areaOrbit * Math.sin(angle);
+    areaPos[a.id] = { x, y, angle };
+    return { ...a, x, y, _angle: angle };
+  });
+
+  // 计算 Direction 固定位置（围绕所属 Area 展开）
+  const dirNodes = allDirs.map(d => {
+    const ap = areaPos[d.area];
+    if (!ap) return { ...d, x: cx, y: cy };
+    const sameDirs = allDirs.filter(x => x.area === d.area);
+    const idx   = sameDirs.findIndex(x => x.id === d.id);
+    const total = sameDirs.length;
+    const arc   = total === 1 ? 0 : Math.min(Math.PI * 0.65, (total - 1) * 0.52);
+    const step  = total > 1 ? arc / (total - 1) : 0;
+    const dAngle = (ap.angle - arc / 2) + idx * step;
+    return { ...d, x: ap.x + dirOrbit * Math.cos(dAngle), y: ap.y + dirOrbit * Math.sin(dAngle) };
+  });
+
+  // 领域"势力圈"（最底层）
+  const terG = g.append('g').attr('class', 'g-territory');
+  areaNodes.forEach(a => {
+    terG.append('circle')
+      .attr('cx', a.x).attr('cy', a.y).attr('r', territoryR)
+      .attr('fill', a.color).attr('fill-opacity', 0.055)
+      .attr('stroke', a.color).attr('stroke-width', 1.2)
+      .attr('stroke-opacity', 0.18).attr('stroke-dasharray', '5,4');
+  });
+
+  // 连线（Area → Direction）
+  const linkG = g.append('g').attr('class', 'g-links');
+  dirNodes.forEach(d => {
+    const ap = areaPos[d.area];
+    if (!ap) return;
+    linkG.append('line')
+      .attr('x1', ap.x).attr('y1', ap.y)
+      .attr('x2', d.x).attr('y2', d.y)
+      .attr('stroke', 'var(--border)').attr('stroke-width', 1)
+      .attr('stroke-opacity', 0.55);
+  });
+
+  // Direction 节点（先渲染，在 Area 节点之下）
+  const dirG = g.append('g').attr('class', 'g-dirs');
+  const dirNodeG = dirG.selectAll('.node-dir')
+    .data(dirNodes).join('g')
+    .attr('class', 'node-g node-dir')
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .style('cursor', 'pointer')
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
+
+  dirNodeG.append('circle')
+    .attr('r', DIR_R)
+    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
+    .attr('fill-opacity', 0.8)
+    .attr('stroke', d => d.color).attr('stroke-width', 1.5)
+    .attr('class', 'node-circle');
+
+  dirNodeG.append('path')
+    .attr('d', d => makeRingPath(d, DIR_R))
+    .attr('fill', '#3fb950').attr('opacity', 0.9);
+
+  dirNodeG.append('text').attr('dy', '4')
+    .attr('class', 'node-label').style('font-size', '9px')
+    .text(d => { const nm = d.name || ''; return nm.length > 7 ? nm.slice(0,7)+'…' : nm; });
+
+  // Area 节点（后渲染，在最上层）
+  const areaG = g.append('g').attr('class', 'g-areas');
+  const areaNodeG = areaG.selectAll('.node-area')
+    .data(areaNodes).join('g')
+    .attr('class', 'node-g node-area')
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .style('cursor', 'pointer')
+    .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); });
+
+  // Area 外圈轨道（视觉装饰）
+  areaNodeG.append('circle')
+    .attr('r', AREA_R + 8)
+    .attr('fill', 'none')
+    .attr('stroke', d => d.color).attr('stroke-width', 1)
+    .attr('stroke-opacity', 0.25).attr('stroke-dasharray', '3,3');
+
+  areaNodeG.append('circle')
+    .attr('r', AREA_R)
+    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
+    .attr('fill-opacity', 0.92)
+    .attr('stroke', d => d.color).attr('stroke-width', 2.5)
+    .attr('class', 'node-circle');
+
+  areaNodeG.append('path')
+    .attr('d', d => makeRingPath(d, AREA_R + 2))
+    .attr('fill', '#3fb950').attr('opacity', 0.9);
+
+  areaNodeG.append('text').attr('dy', '-6')
+    .attr('class', 'node-label node-label-area').style('font-size', '18px')
+    .text(d => d.icon || '');
+
+  areaNodeG.append('text').attr('dy', '14')
+    .attr('class', 'node-label node-label-area')
+    .text(d => d.name);
+
+  fitGraph();
+}
+
+// 切换全局/领域视图
+function setGraphView(view) {
+  State.graphView = view;
+  const gb = document.getElementById('btn-global-view');
+  const db = document.getElementById('btn-domain-view');
+  if (gb) gb.classList.toggle('active', view === 'global');
+  if (db) db.classList.toggle('active', view === 'domain');
+
+  if (view === 'global') {
+    renderGlobalView();
+  } else {
+    State.expandedArea = null;
+    State.expandedDirection = null;
+    renderAreaLevel();
+  }
 }
 
 // ============================================================
@@ -850,6 +1083,8 @@ document.getElementById('btn-view-graph-from-diagnostic').addEventListener('clic
   hide('quiz-result-view');
   show('quiz-home-view');
   switchToTab('graph');
+  // 进入全局视图，让用户看到诊断后的整体掌握全景
+  setTimeout(() => { setGraphView('global'); }, 200);
 });
 document.getElementById('btn-view-direction-graph').addEventListener('click', () => {
   const dirId = State.currentDirectionId;
@@ -881,13 +1116,17 @@ function drawRadar(selector, data, width, height) {
   // 角度
   const angleSlice = (Math.PI * 2) / n;
 
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const gridColor  = isLight ? '#c8d0d9' : '#30363d';
+  const labelColor = isLight ? '#656d76' : '#8b949e';
+
   // 同心圆（网格）
   for (let l = 1; l <= levels; l++) {
     const r = radius * l / levels;
     g.append('circle')
       .attr('r', r)
       .attr('fill', 'none')
-      .attr('stroke', '#30363d')
+      .attr('stroke', gridColor)
       .attr('stroke-width', 0.5);
   }
 
@@ -900,7 +1139,7 @@ function drawRadar(selector, data, width, height) {
     g.append('line')
       .attr('x1', 0).attr('y1', 0)
       .attr('x2', x).attr('y2', y)
-      .attr('stroke', '#30363d')
+      .attr('stroke', gridColor)
       .attr('stroke-width', 0.8);
 
     const labelR = radius + 20;
@@ -913,7 +1152,7 @@ function drawRadar(selector, data, width, height) {
       .attr('y', ly)
       .attr('text-anchor', Math.abs(lx) < 10 ? 'middle' : lx > 0 ? 'start' : 'end')
       .attr('dominant-baseline', 'middle')
-      .attr('fill', '#8b949e')
+      .attr('fill', labelColor)
       .attr('font-size', '10px')
       .text(label);
   });
@@ -1103,10 +1342,19 @@ function navigateToNode(type, id) {
   switchToTab('graph');
   if (!State.graphData) return;
 
-  const STEP = 120; // ms — enough for one simulation alpha decay step
+  // 搜索导航需要领域视图的逐层展开
+  if (State.graphView !== 'domain') {
+    State.graphView = 'domain';
+    const gb = document.getElementById('btn-global-view');
+    const db = document.getElementById('btn-domain-view');
+    if (gb) gb.classList.remove('active');
+    if (db) db.classList.add('active');
+  }
+
+  const STEP = 120;
 
   if (type === 'area') {
-    resetToAreas();
+    renderAreaLevel();
     setTimeout(() => {
       const node = State.graphData.nodes.find(n => n.id === id && n.type === 'area');
       if (node) showNodeInfo(node);
@@ -1114,7 +1362,7 @@ function navigateToNode(type, id) {
   } else if (type === 'direction') {
     const dirNode = State.graphData.nodes.find(n => n.id === id && n.type === 'direction');
     if (!dirNode) return;
-    resetToAreas();
+    renderAreaLevel();
     setTimeout(() => {
       expandArea(dirNode.area);
       setTimeout(() => {
@@ -1127,7 +1375,7 @@ function navigateToNode(type, id) {
     if (!topicNode) return;
     const dirNode = State.graphData.nodes.find(n => n.id === topicNode.direction && n.type === 'direction');
     if (!dirNode) return;
-    resetToAreas();
+    renderAreaLevel();
     setTimeout(() => {
       expandArea(dirNode.area);
       setTimeout(() => {
@@ -1196,5 +1444,27 @@ function appendCourseExploreBtn(container, nodeType, nodeId, nodeName) {
 // ============================================================
 // 启动
 // ============================================================
+
+// ============================================================
+// 日/夜主题切换
+// ============================================================
+
+(function initTheme() {
+  const saved = localStorage.getItem('kg_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = saved === 'light' ? '🌙' : '☀';
+})();
+
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('kg_theme', next);
+  document.getElementById('theme-toggle').textContent = next === 'light' ? '🌙' : '☀';
+  // 重绘图谱以更新颜色
+  if (State.graphView === 'global') renderGlobalView();
+  else if (State.graphLevel === 'area') renderAreaLevel();
+});
 
 init();

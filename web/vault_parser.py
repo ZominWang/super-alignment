@@ -584,7 +584,10 @@ def get_direction_quiz(direction_id):
         return None
 
     topics = load_topics()
-    dir_topics = [t for t in topics if t.get('direction') == direction_id]
+    dir_topics = sorted(
+        [t for t in topics if t.get('direction') == direction_id],
+        key=lambda t: (t.get('difficulty', 3), t.get('name', ''))
+    )
 
     quiz_data = {
         'direction_id': direction_id,
