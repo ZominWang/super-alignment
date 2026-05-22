@@ -369,8 +369,7 @@ function renderAreaLevel() {
   node.append('title').text(d => entityName(d) || '');
   node.append('circle')
     .attr('r', AREA_R)
-    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', 0.9)
+    .attr('fill', d => d.color).attr('fill-opacity', 0.88)
     .attr('stroke', d => d.color)
     .attr('stroke-width', 2.5)
     .attr('class', 'node-circle');
@@ -439,8 +438,8 @@ function expandArea(areaId) {
   node.append('title').text(d => entityName(d) || '');
   node.append('circle')
     .attr('r', d => d.type === 'area' ? AREA_R : DIR_R)
-    .attr('fill', d => masteryColor(d.color, d.mastered, d.total))
-    .attr('fill-opacity', d => d.type === 'area' ? 0.95 : 0.82)
+    .attr('fill', d => d.color)
+    .attr('fill-opacity', d => d.type === 'area' ? 0.88 : 0.82)
     .attr('stroke', d => d.color)
     .attr('stroke-width', d => d.type === 'area' ? 2.5 : 1.5)
     .attr('class', 'node-circle');
@@ -530,7 +529,7 @@ function expandDirection(dirId) {
   node.append('circle')
     .attr('r', d => d.type === 'direction' ? DIR_R : (5 + (d.importance || 3) * 2))
     .attr('fill', d => {
-      if (d.type === 'direction') return masteryColor(d.color, d.mastered, d.total);
+      if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
       if (s === 'mastered')   return '#3fb950';
       if (s === 'learning')   return '#d29922';
