@@ -18,6 +18,7 @@ const TRANSLATIONS = {
     'sidebar.title':      '知识图谱',
     'view.path':          '路径导览',
     'view.global':        '全局总览',
+    'view.dir':           '目录',
     'view.domain':        '领域浏览',
     'crumb.all_areas':    '全部大类',
 
@@ -162,6 +163,7 @@ const TRANSLATIONS = {
     'sidebar.title':      'Knowledge Graph',
     'view.path':          'Learning Path',
     'view.global':        'Global View',
+    'view.dir':           'Directory',
     'view.domain':        'Domain View',
     'crumb.all_areas':    'All Areas',
 

@@ -315,6 +315,44 @@ body {
 
 /* ── 路径导览面板 ─────────────────────────────────────── */
 
+.dir-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dir-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+
+.dir-area { border-bottom: 1px solid var(--border); }
+.dir-area-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; cursor: pointer; user-select: none;
+  font-size: 12px; font-weight: 600;
+}
+.dir-area-header:hover { background: var(--bg3); }
+.dir-chevron { font-size: 10px; color: var(--text-muted); width: 10px; }
+.dir-area-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dir-area-name { flex: 1; }
+.dir-area-count { font-size: 11px; color: var(--text-muted); }
+
+.dir-dir { padding-left: 8px; }
+.dir-dir-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 6px; cursor: pointer; user-select: none; font-size: 12px;
+}
+.dir-dir-header:hover { background: var(--bg3); border-radius: 4px; }
+.dir-dir-name { flex: 1; color: var(--text-muted); }
+.dir-dir-count { font-size: 11px; color: var(--text-muted); }
+
+.dir-dir-body { padding-left: 16px; }
+.dir-topic {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 8px; cursor: pointer; border-radius: 4px; font-size: 12px;
+}
+.dir-topic:hover { background: var(--bg3); }
+.dir-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dir-topic-name { flex: 1; color: var(--text); }
+
 .path-panel {
   flex: 1;
   display: flex;

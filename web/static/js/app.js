@@ -11,6 +11,7 @@ if (typeof onLangChange === 'function') {
     // Re-render dynamic content on language change
     if (typeof renderDirectionsGrid === 'function') renderDirectionsGrid();
     if (typeof renderPathPanel      === 'function' && State.graphView === 'path') renderPathPanel();
+    if (typeof renderDirPanel       === 'function' && State.graphView === 'dir')  renderDirPanel();
     if (typeof updateTopbarBadge    === 'function') updateTopbarBadge();
     // Re-render quiz result views if visible
     if (State._lastDiagnosticResult && !document.getElementById('quiz-result-view').classList.contains('hidden')) {
@@ -33,7 +34,7 @@ if (typeof onLangChange === 'function') {
 
 const State = {
   graphLevel: 'area',        // 'area' | 'direction' | 'topic'
-  graphView: 'global',       // 'global' | 'domain' | 'path'
+  graphView: 'global',       // 'global' | 'domain' | 'path' | 'dir'
   expandedArea: null,        // 当前展开的 area id
   expandedDirection: null,   // 当前展开的 direction id
   graphData: null,           // 完整图谱数据
@@ -241,8 +242,9 @@ async function refreshGraphData() {
     const graphResp = await fetchWithTimeout('/api/graph').then(r => r.json());
     State.graphData = graphResp;
     // 重新渲染当前视图
-    if (State.graphView === 'global' || State.graphView === 'path') {
+    if (State.graphView === 'global' || State.graphView === 'path' || State.graphView === 'dir') {
       renderGlobalView();
+      if (State.graphView === 'dir') renderDirPanel();
     } else if (State.graphLevel === 'area') {
       renderAreaLevel();
     } else if (State.graphLevel === 'direction' && State.expandedArea) {
@@ -315,7 +317,7 @@ function initGraph() {
     const nW = e.contentRect.width, nH = e.contentRect.height;
     if (nW > 0 && nH > 0) {
       svg.attr('width', nW).attr('height', nH);
-      if (State.graphView === 'global' || State.graphView === 'path') {
+      if (State.graphView === 'global' || State.graphView === 'path' || State.graphView === 'dir') {
         renderGlobalView();
       } else if (State.graphLevel === 'area') {
         renderAreaLevel();
@@ -970,7 +972,7 @@ function renderGlobalView() {
   State.graphLevel = 'area';
   State.expandedArea = null;
   State.expandedDirection = null;
-  if (State.graphView !== 'path') State.graphView = 'global';
+  if (State.graphView !== 'path' && State.graphView !== 'dir') State.graphView = 'global';
   State.activePathStep = null;
   updateLayerDots(0);   // hide layer indicator — global view shows all levels at once
   updateBreadcrumb([]);
@@ -1158,21 +1160,29 @@ function renderGlobalView() {
   if (State.searchHighlightIds) applySearchHighlight(State.searchHighlightIds);
 }
 
-// 切换全局/领域视图
+// 切换全局/领域/路径/目录视图
 function setGraphView(view) {
   State.graphView = view;
   const gb = document.getElementById('btn-global-view');
   const db = document.getElementById('btn-domain-view');
   const pb = document.getElementById('btn-path-view');
+  const dirb = document.getElementById('btn-dir-view');
   if (gb) gb.classList.toggle('active', view === 'global');
   if (db) db.classList.toggle('active', view === 'domain');
   if (pb) pb.classList.toggle('active', view === 'path');
+  if (dirb) dirb.classList.toggle('active', view === 'dir');
+
+  const dirPanel = document.getElementById('dir-panel');
+  const pathPanel = document.getElementById('path-panel');
+  const legend = document.querySelector('.graph-legend');
+  const nodeInfo = document.getElementById('node-info-panel');
 
   if (view === 'path') {
     // 路径视图：图谱显示全局总览（若尚未渲染则先渲染），侧栏显示路径
-    document.querySelector('.graph-legend').classList.add('hidden');
-    document.getElementById('node-info-panel').classList.add('hidden');
-    document.getElementById('path-panel').classList.remove('hidden');
+    legend.classList.add('hidden');
+    nodeInfo.classList.add('hidden');
+    pathPanel.classList.remove('hidden');
+    if (dirPanel) dirPanel.classList.add('hidden');
     if (gb) gb.classList.remove('active');
     if (db) db.classList.remove('active');
     if (pb) pb.classList.add('active');
@@ -1183,11 +1193,24 @@ function setGraphView(view) {
       State.graphView = 'path';
     }
     renderPathPanel();
+  } else if (view === 'dir') {
+    // 目录视图：侧栏显示树形目录，图谱保持全局总览
+    legend.classList.add('hidden');
+    nodeInfo.classList.add('hidden');
+    pathPanel.classList.add('hidden');
+    if (dirPanel) dirPanel.classList.remove('hidden');
+    updateLayerDots(0);
+    if (!State.simulationNodes) {
+      renderGlobalView();
+      State.graphView = 'dir';
+    }
+    renderDirPanel();
   } else {
     // 切回图谱视图：恢复侧栏，清除高亮
-    document.querySelector('.graph-legend').classList.remove('hidden');
-    document.getElementById('node-info-panel').classList.remove('hidden');
-    document.getElementById('path-panel').classList.add('hidden');
+    legend.classList.remove('hidden');
+    nodeInfo.classList.remove('hidden');
+    pathPanel.classList.add('hidden');
+    if (dirPanel) dirPanel.classList.add('hidden');
     g.selectAll('\.path-highlight').remove();
     State.activePathStep = null;
 
@@ -1348,6 +1371,83 @@ function showPathNodeDetail(d) {
     </div>
   `;
   el.querySelector('[data-action="quiz"]').addEventListener('click', () => startTopicQuiz(d.id));
+}
+
+// ============================================================
+// 目录视图
+// ============================================================
+
+const _dirExpanded = {};  // area_id/dir_id → boolean (expanded state)
+
+function renderDirPanel() {
+  const tree = document.getElementById('dir-tree');
+  if (!tree || !State.graphData) return;
+
+  const nodes = State.graphData.nodes;
+  const areas = nodes.filter(n => n.type === 'area');
+  const dirs  = nodes.filter(n => n.type === 'direction');
+  const topics = nodes.filter(n => n.type === 'topic');
+
+  const statusColor = { mastered: '#3fb950', learning: '#d29922', needs_work: '#f85149', unknown: '#8B949E' };
+
+  let html = '';
+  for (const area of areas) {
+    const expanded = _dirExpanded[area.id] !== false; // default expanded
+    const areaDirs = dirs.filter(d => d.area === area.id);
+    html += `<div class="dir-area${expanded ? ' expanded' : ''}" data-id="${escHtml(area.id)}">
+      <div class="dir-area-header" onclick="toggleDirNode('${escHtml(area.id)}')">
+        <span class="dir-chevron">${expanded ? '▾' : '▸'}</span>
+        <span class="dir-area-dot" style="background:${escHtml(area.color || '#888')}"></span>
+        <span class="dir-area-name">${escHtml(entityName(area))}</span>
+        <span class="dir-area-count">${area.total || 0}</span>
+      </div>
+      <div class="dir-area-body" style="display:${expanded ? '' : 'none'}">`;
+
+    for (const dir of areaDirs) {
+      const dirExpanded = _dirExpanded[dir.id] !== false;
+      const dirTopics = topics.filter(t => t.direction === dir.id);
+      const masteredCount = dirTopics.filter(t => t.status === 'mastered').length;
+      html += `<div class="dir-dir${dirExpanded ? ' expanded' : ''}" data-id="${escHtml(dir.id)}">
+        <div class="dir-dir-header" onclick="toggleDirNode('${escHtml(dir.id)}')">
+          <span class="dir-chevron">${dirExpanded ? '▾' : '▸'}</span>
+          <span class="dir-dir-name">${escHtml(entityName(dir))}</span>
+          <span class="dir-dir-count">${masteredCount}/${dirTopics.length}</span>
+        </div>
+        <div class="dir-dir-body" style="display:${dirExpanded ? '' : 'none'}">`;
+
+      for (const topic of dirTopics) {
+        const sc = statusColor[topic.status] || statusColor.unknown;
+        html += `<div class="dir-topic" data-id="${escHtml(topic.id)}" onclick="navigateToDirTopic('${escHtml(topic.id)}')">
+          <span class="dir-status-dot" style="background:${sc}"></span>
+          <span class="dir-topic-name">${escHtml(entityName(topic))}</span>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div></div>`;
+  }
+  tree.innerHTML = html;
+}
+
+function toggleDirNode(id) {
+  _dirExpanded[id] = !(_dirExpanded[id] !== false);
+  renderDirPanel();
+}
+
+function navigateToDirTopic(topicId) {
+  // Show node info in sidebar; switch to global view if needed
+  const node = (State.graphData?.nodes || []).find(n => n.id === topicId);
+  if (!node) return;
+  showNodeInfo(node);
+  // Highlight the node on the graph
+  if (State.simulationNodes) {
+    g.selectAll('.node-g').attr('opacity', d => d && d.id === topicId ? 1 : 0.25);
+    State.searchHighlightIds = new Set([topicId]);
+    setTimeout(() => {
+      g.selectAll('.node-g').attr('opacity', null);
+      State.searchHighlightIds = null;
+    }, 2000);
+  }
 }
 
 // ============================================================

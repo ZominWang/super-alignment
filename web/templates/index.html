@@ -82,6 +82,7 @@
       <div class="view-toggle-bar">
         <button class="view-toggle-btn" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
         <button class="view-toggle-btn active" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
+        <button class="view-toggle-btn" id="btn-dir-view" data-i18n="view.dir" onclick="setGraphView('dir')">目录</button>
         <!-- 领域浏览：通过双击节点或"查看主题图"按钮进入，不作为顶级导航入口 -->
         <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')" style="display:none">领域浏览</button>
       </div>
@@ -119,6 +120,11 @@
         </div>
         <!-- Tag filter indicator — shown when a tag is active -->
         <div id="tag-filter-indicator" style="display:none;margin-top:8px;cursor:pointer;font-size:11px;background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);border-radius:12px;padding:3px 8px;color:var(--accent);text-align:center" onclick="filterByTag(null)"></div>
+      </div>
+
+      <!-- 目录浏览面板 -->
+      <div class="dir-panel hidden" id="dir-panel">
+        <div class="dir-tree" id="dir-tree"></div>
       </div>
 
       <!-- 路径导览面板 -->
