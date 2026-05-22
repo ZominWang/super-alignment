@@ -63,7 +63,8 @@ const TRANSLATIONS = {
     'btn.expand_area':    '展开方向图',
     'btn.browse_area':    '浏览此领域 →',
     'btn.locate':         '在图谱中定位 →',
-    'btn.quiz_topic':     '测评所属方向（{n}题）',
+    'btn.quiz_this_topic': '测当前主题（3题）',
+    'btn.quiz_topic':     '测本方向（{n}题）',
     'btn.course':         '🎓 生成课程搜索提示词',
 
     // Path panel
@@ -150,6 +151,11 @@ const TRANSLATIONS = {
     'meta.importance':    '重要度',
     'node.prerequisites': '前置知识',
     'node.leads_to':      '延伸方向',
+
+    // Audience badges
+    'audience.entry':     '入门',
+    'audience.general':   '通用',
+    'audience.technical': '技术深入',
   },
 
   en: {
@@ -206,7 +212,8 @@ const TRANSLATIONS = {
     'btn.expand_area':    'Expand directions',
     'btn.browse_area':    'Browse this area →',
     'btn.locate':         'Locate in graph →',
-    'btn.quiz_topic':     'Quiz this direction ({n} Q)',
+    'btn.quiz_this_topic': 'Quiz This Topic (3 Q)',
+    'btn.quiz_topic':     'Quiz This Direction ({n} Q)',
     'btn.course':         '🎓 Generate course prompt',
 
     'path.apply':         'Applied',
@@ -284,6 +291,11 @@ const TRANSLATIONS = {
     'meta.importance':    'Importance',
     'node.prerequisites': 'Prerequisites',
     'node.leads_to':      'Leads To',
+
+    // Audience badges
+    'audience.entry':     'Beginner',
+    'audience.general':   'General',
+    'audience.technical': 'Technical',
   }
 };
 

@@ -52,7 +52,7 @@ const State = {
   _lastDirectionResult: null,  // 最近一次方向测评结果
 
   // 测评
-  quizMode: null,            // 'diagnostic' | 'direction'
+  quizMode: null,            // 'diagnostic' | 'direction' | 'topic'
   quizQuestions: [],         // 当前题目列表
   quizIndex: 0,              // 当前题目索引
   quizAnswers: [],           // 已提交的答案记录
@@ -670,8 +670,15 @@ function showNodeInfo(d) {
     const impEl = document.createElement('span');
     impEl.className = 'node-meta-item';
     impEl.innerHTML = `<span class="meta-label">${t('meta.importance')}</span> <span class="meta-stars">${mkStars(imp)}</span>`;
+    const audienceLabel = diff <= 2
+      ? t('audience.entry')
+      : diff >= 4 ? t('audience.technical') : t('audience.general');
+    const audEl = document.createElement('span');
+    audEl.className = 'node-meta-item node-audience-badge';
+    audEl.textContent = audienceLabel;
     metaRow.appendChild(diffEl);
     metaRow.appendChild(impEl);
+    metaRow.appendChild(audEl);
     card.appendChild(metaRow);
 
     // Status badge
@@ -738,10 +745,11 @@ function showNodeInfo(d) {
     mkChain(prereqIds, 'node.prerequisites');
     mkChain(dependIds, 'node.leads_to');
 
-    // Action buttons — look up parent direction's topic count for quiz label
+    // Action buttons
     const parentDir = (State.graphData?.nodes || []).find(n => n.id === d.direction && n.type === 'direction');
     const dirTopicCount = parentDir ? (parentDir.total || parentDir.topic_count || 0) : 0;
-    _addBtn(card, 'node-action-btn', 'quiz', t('btn.quiz_topic', {n: dirTopicCount * 3}));
+    _addBtn(card, 'node-action-btn', 'quiz-topic', t('btn.quiz_this_topic'));
+    _addBtn(card, 'node-action-btn node-secondary-btn', 'quiz', t('btn.quiz_topic', {n: dirTopicCount * 3}));
     if (State.graphView === 'global') _addBtn(card, 'node-action-btn node-expand-btn', 'navigate', t('btn.locate'));
 
   } else if (d.type === 'direction') {
@@ -768,7 +776,8 @@ function showNodeInfo(d) {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     switch (btn.dataset.action) {
-      case 'quiz':             startTopicQuiz(d.id); break;
+      case 'quiz-topic':       startTopicQuiz(d.id); break;
+      case 'quiz':             startDirectionQuizFromGraph(d.direction); break;
       case 'navigate':         navigateToNode('topic', d.id); break;
       case 'dir-quiz':         startDirectionQuizFromGraph(d.id); break;
       case 'view-dir-global':  setGraphView('domain'); setTimeout(() => expandDirection(d.id), 50); break;
@@ -796,11 +805,41 @@ function _addBtn(parent, cls, action, label) {
   parent.appendChild(btn);
 }
 
-function startTopicQuiz(topicId) {
+async function startTopicQuiz(topicId) {
   switchToTab('quiz');
-  const topicNode = State.graphData.nodes.find(n => n.id === topicId);
-  const dirId = topicNode?.direction;
-  if (dirId) startDirectionQuiz(dirId);
+  State.quizMode = 'topic';
+  State.currentTopicId = topicId;
+  hide('quiz-home-view');
+  hide('quiz-result-view');
+  hide('direction-result-view');
+
+  const topicNode = (State.graphData?.nodes || []).find(n => n.id === topicId);
+  try {
+    const data = await fetchWithTimeout(`/api/quiz/${topicId}`).then(r => r.json());
+    const qs = (data.questions || []).map(q => ({
+      ...q,
+      topic_id: topicId,
+      topic_name: data.topic_name || topicNode?.name || topicId,
+      direction_id: topicNode?.direction || '',
+    }));
+    State.quizQuestions = qs;
+    State.quizIndex = 0;
+    State.quizAnswers = [];
+    State.answeredCurrent = false;
+    State.currentDirectionId = topicNode?.direction || null;
+
+    const tName = (getLang() === 'en' && data.topic_name_en) ? data.topic_name_en : data.topic_name;
+    document.getElementById('quiz-flow-title').textContent = tName || topicId;
+    document.getElementById('quiz-flow-subtitle').textContent = getLang() === 'en'
+      ? `${qs.length} questions · 1 topic`
+      : `${qs.length} 道题 · 1 个主题`;
+
+    show('quiz-flow-view');
+    renderCurrentQuestion();
+  } catch (e) {
+    alert(t('quiz.load_failed', {msg: e.message}));
+    show('quiz-home-view');
+  }
 }
 
 function startDirectionQuizFromGraph(dirId) {
@@ -1370,7 +1409,7 @@ function showPathNodeDetail(d) {
       ${displayNameAlt ? `<div class="path-detail-en">${escHtml(displayNameAlt)}</div>` : ''}
       <span class="node-status-badge ${statusClass}">${escHtml(statusLabel)}</span>
       ${d.description ? `<div class="path-detail-desc">${escHtml(d.description)}</div>` : ''}
-      <button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_topic'))}</button>
+      <button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_this_topic'))}</button>
     </div>
   `;
   el.querySelector('[data-action="quiz"]').addEventListener('click', () => startTopicQuiz(d.id));
@@ -1700,6 +1739,8 @@ async function finishQuiz() {
 
   if (State.quizMode === 'diagnostic') {
     await submitDiagnostic();
+  } else if (State.quizMode === 'topic') {
+    await submitDirectionQuiz();  // topic answers have direction_id; reuse direction submit
   } else {
     await submitDirectionQuiz();
   }

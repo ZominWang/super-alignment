@@ -669,6 +669,14 @@ body {
 
 .node-expand-btn:hover { background: var(--bg); color: var(--text); }
 
+.node-secondary-btn {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.node-secondary-btn:hover { background: rgba(88,166,255,.08); color: var(--accent); }
+
 /* Node info — color bar */
 .node-color-bar {
   height: 3px;
@@ -697,6 +705,16 @@ body {
   font-size: 12px;
   letter-spacing: 1px;
   color: var(--warning);
+}
+.node-audience-badge {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(88,166,255,.12);
+  border: 1px solid rgba(88,166,255,.25);
+  color: var(--accent);
+  white-space: nowrap;
+  align-self: center;
 }
 
 /* Node info — tags */
