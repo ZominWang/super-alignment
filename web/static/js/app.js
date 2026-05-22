@@ -1097,6 +1097,9 @@ function renderGlobalView() {
     .text(d => { const nm = entityName(d) || ''; return nm.length > 9 ? nm.slice(0, 8) + '…' : nm; });
 
   fitGraph();
+  // Re-apply any active filter or search highlight after redraw
+  if (State.filterArea) applyAreaFilter();
+  if (State.searchHighlightIds) applySearchHighlight(State.searchHighlightIds);
 }
 
 // 切换全局/领域视图
