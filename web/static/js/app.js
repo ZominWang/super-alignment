@@ -1914,10 +1914,11 @@ document.getElementById('btn-view-graph-from-diagnostic').addEventListener('clic
   hide('quiz-result-view');
   show('quiz-home-view');
   switchToTab('graph');
-  // 刷新图谱数据（诊断后状态已更新），再切到全局总览
   setTimeout(async () => {
     setGraphView('global');
     await refreshGraphData();
+    // 显示个人掌握图谱模式横幅
+    showMasteryModeBanner(State._lastDiagnosticResult);
   }, 200);
 });
 document.getElementById('btn-view-direction-graph').addEventListener('click', async () => {
@@ -1929,6 +1930,67 @@ document.getElementById('btn-view-direction-graph').addEventListener('click', as
   if (dirId) navigateToNode('direction', dirId);
   else switchToTab('graph');
 });
+
+// ============================================================
+// 个人掌握图谱模式横幅
+// ============================================================
+
+async function showMasteryModeBanner(result) {
+  const panel = document.getElementById('node-info-panel');
+  if (!panel) return;
+
+  // Fetch recommendations
+  let recs = [];
+  try {
+    recs = await fetchWithTimeout('/api/recommendations?top_n=3').then(r => r.json());
+  } catch (_) {}
+
+  const total = result?.total_questions || 0;
+  const correct = result?.total_correct || 0;
+  const pct = total > 0 ? Math.round(correct / total * 100) : 0;
+  const isEn = getLang() === 'en';
+
+  const recHtml = recs.length > 0 ? `
+    <div class="mastery-banner-recs-title">${isEn ? '🚀 Recommended next' : '🚀 推荐下一步'}</div>
+    ${recs.map(r => {
+      const name = (isEn && r.name_en) ? r.name_en : r.name;
+      return `<button class="mastery-rec-btn" data-id="${escHtml(r.id)}">${escHtml(name)}</button>`;
+    }).join('')}
+  ` : '';
+
+  panel.innerHTML = `
+    <div class="mastery-mode-banner">
+      <div class="mastery-banner-header">
+        <span class="mastery-banner-title">${isEn ? '📊 Post-Diagnostic Graph' : '📊 诊断后知识图谱'}</span>
+        <button class="mastery-banner-exit" onclick="clearMasteryModeBanner()">${isEn ? '✕ Exit' : '✕ 退出'}</button>
+      </div>
+      <div class="mastery-banner-score">${isEn ? `Score: ${correct}/${total} (${pct}%)` : `本次得分：${correct}/${total}（${pct}%）`}</div>
+      <div class="mastery-banner-desc">${isEn ? 'Node colors show your latest mastery status.' : '节点颜色已更新为最新掌握状态。'}</div>
+      ${recHtml}
+      <div class="mastery-banner-onboard-hint">${isEn ? 'Click a node to view details' : '单击节点查看详情'}</div>
+    </div>
+  `;
+
+  // Bind rec buttons
+  panel.querySelectorAll('.mastery-rec-btn').forEach(btn => {
+    btn.addEventListener('click', () => navigateToNode('topic', btn.dataset.id));
+  });
+}
+
+function clearMasteryModeBanner() {
+  const panel = document.getElementById('node-info-panel');
+  if (!panel) return;
+  panel.innerHTML = `<div class="node-info-empty" id="node-info-empty-msg">
+    <div class="onboard-title">AI / LLM / Agent 知识图谱</div>
+    <div class="onboard-ways">
+      <div class="onboard-way">🗺 <strong>浏览</strong>：单击节点查看详情，双击深入</div>
+      <div class="onboard-way">🔍 <strong>搜索</strong>：顶部搜索框，快捷键 ⌘K</div>
+      <div class="onboard-way">📝 <strong>测评</strong>：点击"测评"Tab 开始诊断</div>
+      <div class="onboard-way">📂 <strong>目录</strong>：切换"目录"视图完整浏览</div>
+    </div>
+    <div class="onboard-hint">单击节点后此处显示详情</div>
+  </div>`;
+}
 
 // ============================================================
 // D3 雷达图 (蜘蛛网图)
