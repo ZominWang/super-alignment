@@ -431,8 +431,9 @@ def api_recommendations():
 if __name__ == '__main__':
     print("=" * 50)
     print("AI 知识图谱系统 v2 启动中...")
-    print("访问地址: http://localhost:5001")
+    port = int(os.environ.get('FLASK_PORT', '5001'))
+    print(f"访问地址: http://localhost:{port}")
     print("=" * 50)
     # #1: debug 模式和监听地址通过环境变量控制，默认安全值
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
-    app.run(debug=DEBUG, host=host, port=5001)
+    app.run(debug=DEBUG, host=host, port=port)

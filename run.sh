@@ -13,6 +13,8 @@ if [ ! -d "venv" ]; then
 fi
 
 source venv/bin/activate
-echo "启动 AI 知识图谱系统，访问地址：http://localhost:5001"
+FLASK_PORT="${FLASK_PORT:-5001}"
+export FLASK_PORT
+echo "启动 AI 知识图谱系统，访问地址：http://localhost:${FLASK_PORT}"
 cd web
 python app.py
