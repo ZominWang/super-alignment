@@ -50,6 +50,8 @@ const State = {
   filterTag: null,           // 标签点击筛选：null = 全部显示
   searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
   focusedNode: null,         // 当前聚焦的节点，用于 zoom/pan 时跟随更新浮动按钮
+  globalLabelMode: localStorage.getItem('kg_graph_global_labels') || 'smart', // smart | expanded
+  directionLabelMode: localStorage.getItem('kg_graph_direction_labels') || 'smart', // smart | expanded
 
   _lastDiagnosticResult: null, // 最近一次诊断结果（供语言切换时重渲染）
   _lastDirectionResult: null,  // 最近一次方向测评结果
@@ -64,6 +66,14 @@ const State = {
 };
 
 window.State = State;
+
+document.addEventListener('click', e => {
+  const btn = e.target?.closest?.('[data-graph-scale-action]');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleGraphScaleAction(btn.dataset.graphScaleAction);
+});
 
 // ============================================================
 // 学习路径定义（按意图分组）
@@ -522,8 +532,7 @@ async function renderLearningCockpit() {
       });
     } else {
       nextEl.innerHTML = `<span>${t('cockpit.next_label')}</span>
-        <em>${getLang() === 'en' ? 'Run the 5-question quick diagnostic to unlock honest recommendations.' : '完成 5 题快速定位后，这里会出现基于真实答题的推荐。'}</em>
-        <button type="button" class="cockpit-inline-cta" onclick="startQuickDiagnostic()">${getLang() === 'en' ? 'Quick diagnostic →' : '开始快速定位 →'}</button>`;
+        <button type="button" class="cockpit-inline-cta" onclick="startQuickDiagnostic()">${getLang() === 'en' ? 'Quick diagnostic →' : '快速定位 →'}</button>`;
     }
   } catch (e) {
     console.warn('Cockpit render failed:', e);
@@ -629,6 +638,21 @@ function switchToTab(tabName) {
 
 let svg, g, simulation, zoomBehavior;
 const AREA_R = 42, DIR_R = 26, TOPIC_R = 14;
+const GRAPH_AREA_COLORS = {
+  foundation: '#64D2FF',
+  llm: '#A78BFA',
+  application: '#0A84FF',
+  engineering: '#30D158',
+  safety: '#FF9F0A',
+};
+function graphAreaColor(areaId, fallback = '#8E8E93') {
+  return GRAPH_AREA_COLORS[areaId] || fallback;
+}
+function graphNodeColor(d) {
+  if (!d) return '#8E8E93';
+  const areaId = d.type === 'area' ? d.id : d.area;
+  return graphAreaColor(areaId, d.color || '#8E8E93');
+}
 
 function initGraph() {
   const wrap = document.getElementById('graph-svg').parentElement;
@@ -680,8 +704,52 @@ function initGraph() {
 
 function clearGraph() {
   clearNodeFocus({ keepCard: true });
+  document.getElementById('graph-svg')?.parentElement?.classList.remove('global-density-mode');
+  hideGraphScaleHint();
   if (simulation) simulation.stop();
   g.selectAll('*').remove();
+}
+
+function showGraphScaleHint({ title, body, tone = 'info', actionLabel, action, meta } = {}) {
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (!wrap || !title) return;
+  let hint = document.getElementById('graph-scale-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'graph-scale-hint';
+    hint.className = 'graph-scale-hint';
+    wrap.appendChild(hint);
+  }
+  hint.className = `graph-scale-hint graph-scale-hint-${tone}`;
+  const actionHtml = action && actionLabel
+    ? `<button type="button" class="graph-scale-action" data-graph-scale-action="${escHtml(action)}">${escHtml(actionLabel)}</button>`
+    : '';
+  const metaHtml = meta ? `<small>${escHtml(meta)}</small>` : '';
+  hint.innerHTML = `<strong>${escHtml(title)}</strong><span>${escHtml(body || '')}</span>${metaHtml}${actionHtml}`;
+  hint.classList.add('show');
+}
+
+function handleGraphScaleAction(action) {
+  if (action === 'toggle-global-labels') {
+    State.globalLabelMode = State.globalLabelMode === 'expanded' ? 'smart' : 'expanded';
+    localStorage.setItem('kg_graph_global_labels', State.globalLabelMode);
+    renderGlobalView();
+    showToast(State.globalLabelMode === 'expanded'
+      ? (getLang() === 'en' ? 'More topic labels shown' : '已显示更多主题标签')
+      : (getLang() === 'en' ? 'Returned to overview labels' : '已恢复总览标签密度'), { tone: 'success', duration: 1500 });
+  }
+  if (action === 'toggle-direction-labels') {
+    State.directionLabelMode = State.directionLabelMode === 'expanded' ? 'smart' : 'expanded';
+    localStorage.setItem('kg_graph_direction_labels', State.directionLabelMode);
+    if (State.expandedDirection) expandDirection(State.expandedDirection);
+    showToast(State.directionLabelMode === 'expanded'
+      ? (getLang() === 'en' ? 'More labels shown in this direction' : '已显示更多本方向标签')
+      : (getLang() === 'en' ? 'Returned to core labels' : '已恢复核心标签显示'), { tone: 'success', duration: 1500 });
+  }
+}
+
+function hideGraphScaleHint() {
+  document.getElementById('graph-scale-hint')?.classList.remove('show');
 }
 
 function renderAreaLevel() {
@@ -848,6 +916,41 @@ function expandDirection(dirId) {
   const topicNodes = State.graphData.nodes
     .filter(n => n.type === 'topic' && n.direction === dirId)
     .map(n => ({ ...n, x: W / 2 + (Math.random() - 0.5) * 250, y: H / 2 + (Math.random() - 0.5) * 250 }));
+  const denseDirection = topicNodes.length > 18;
+  const directionLabelsExpanded = State.directionLabelMode === 'expanded';
+  const topicLabelBudget = denseDirection
+    ? (directionLabelsExpanded ? Math.min(topicNodes.length, 36) : 14)
+    : Infinity;
+  const labeledTopicIds = new Set(topicNodes
+    .slice()
+    .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
+    .slice(0, topicLabelBudget)
+    .map(t => t.id));
+  const topicNodeRadius = d => {
+    if (d.type !== 'topic') return d.type === 'direction' ? DIR_R : 22;
+    const base = 5 + (d.importance || 3) * 2;
+    return denseDirection ? Math.max(7, base * 0.82) : base;
+  };
+  if (denseDirection) {
+    showGraphScaleHint({
+      title: getLang() === 'en' ? `${topicNodes.length} topics in this direction` : `本方向 ${topicNodes.length} 个主题`,
+      body: directionLabelsExpanded
+        ? (getLang() === 'en'
+          ? 'Showing more labels for inspection. Search remains the fastest exact locator.'
+          : '已显示更多标签用于巡检；精确定位仍建议使用搜索。')
+        : (getLang() === 'en'
+          ? 'Showing core labels only. Use search or the directory for exact topics.'
+          : '仅显示核心主题标签；精确查找请用搜索或目录。'),
+      meta: getLang() === 'en'
+        ? 'Node size = importance · color = learning status'
+        : '节点大小=重要度 · 颜色=学习状态',
+      actionLabel: directionLabelsExpanded
+        ? (getLang() === 'en' ? 'Core labels' : '恢复核心')
+        : (getLang() === 'en' ? 'More labels' : '显示更多'),
+      action: 'toggle-direction-labels',
+      tone: 'density'
+    });
+  }
 
   const allNodes = [areaContextN, dirN, ...topicNodes].filter(Boolean);
   const links = [
@@ -872,7 +975,7 @@ function expandDirection(dirId) {
     .force('link', d3.forceLink(allLinks).id(d => d.id).distance(130).strength(0.7))
     .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : d.type === 'parent_area' ? 34 : TOPIC_R + 12))
+    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : d.type === 'parent_area' ? 34 : topicNodeRadius(d) + 12))
     .on('tick', ticked);
 
   // 链接
@@ -899,9 +1002,8 @@ function expandDirection(dirId) {
 
   node.append('title').text(d => entityName(d) || '');
   node.append('circle')
-    .attr('r', d => d.type === 'direction' ? DIR_R : d.type === 'parent_area' ? 22 : (5 + (d.importance || 3) * 2))
+    .attr('r', d => topicNodeRadius(d))
     .attr('fill', d => {
-      if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
@@ -935,8 +1037,9 @@ function expandDirection(dirId) {
 
   node.append('text')
     .attr('dy', d => d.type === 'direction' ? '4' : d.type === 'parent_area' ? '-2' : '20')
-    .attr('class', d => `node-label${d.type === 'parent_area' ? ' node-label-parent' : ''}`)
+    .attr('class', d => `node-label${d.type === 'parent_area' ? ' node-label-parent' : d.type === 'topic' ? ' node-label-topic-detail' : ''}`)
     .style('font-size', d => d.type === 'direction' ? '11px' : d.type === 'parent_area' ? '16px' : '10px')
+    .style('display', d => d.type === 'topic' && denseDirection && !labeledTopicIds.has(d.id) ? 'none' : null)
     .text(d => {
       if (d.type === 'parent_area') return d.icon || '↖';
       const n = entityName(d) || '';
@@ -1031,7 +1134,8 @@ function endpointId(edge, side) {
 }
 
 function positionNodeActionFan(menu, wrap, point) {
-  const pad = 78;
+  const actionCount = menu.querySelectorAll('.fan-action').length || 4;
+  const pad = actionCount > 2 ? 132 : 112;
   const x = Math.max(pad, Math.min(wrap.clientWidth - pad, point.x));
   const y = Math.max(pad, Math.min(wrap.clientHeight - pad, point.y));
   menu.style.left = `${x}px`;
@@ -1567,10 +1671,15 @@ function clearSearchHighlight() {
   g.selectAll('.node-g').attr('opacity', null);
 }
 
-function updateLayerDots(level) {
-  // Layer dots only meaningful in domain drill-down view
+function updateLayerDots(level, label) {
   const indicator = document.querySelector('.layer-indicator');
-  if (indicator) indicator.style.visibility = level > 0 ? 'visible' : 'hidden';
+  const labels = getLang() === 'en'
+    ? ['Overview', 'Area', 'Direction', 'Topic']
+    : ['总览', '大类', '方向', '主题'];
+  if (indicator) {
+    indicator.style.visibility = 'visible';
+    indicator.dataset.label = label || labels[level] || labels[0];
+  }
   for (let i = 1; i <= 3; i++) {
     const dot = document.getElementById(`ld-${i}`);
     if (dot) dot.classList.toggle('active', i <= level);
@@ -1603,21 +1712,38 @@ function zoomIn() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1.
 function zoomOut() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1 / 1.3); }
 function resetZoom() { fitGraph(); }
 
-// 计算节点包围盒并自动居中缩放到视口
+// 计算图谱包围盒并自动居中缩放到视口
 function fitGraph() {
   if (!svg || !g) return;
   const nodes = g.selectAll('.node-g');
   if (nodes.empty()) return;
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  nodes.each(function(d) {
-    if (!d || d.x == null || d.y == null) return;
-    const r = d.type === 'area' ? AREA_R + 8 : d.type === 'direction' ? DIR_R + 6 : TOPIC_R + 4;
-    minX = Math.min(minX, d.x - r);
-    maxX = Math.max(maxX, d.x + r);
-    minY = Math.min(minY, d.y - r);
-    maxY = Math.max(maxY, d.y + r);
-  });
+
+  // Prefer the rendered SVG bounds: global view has sectors, area labels and badges
+  // outside node centers. Fitting only nodes makes the first view feel cropped.
+  try {
+    const box = g.node()?.getBBox?.();
+    if (box && box.width > 0 && box.height > 0) {
+      minX = box.x;
+      maxX = box.x + box.width;
+      minY = box.y;
+      maxY = box.y + box.height;
+    }
+  } catch (e) {
+    // Some SVG states can throw while transitions are settling; fall back below.
+  }
+
+  if (!isFinite(minX) || maxX <= minX || maxY <= minY) {
+    nodes.each(function(d) {
+      if (!d || d.x == null || d.y == null) return;
+      const r = d.type === 'area' ? AREA_R + 8 : d.type === 'direction' ? DIR_R + 6 : TOPIC_R + 4;
+      minX = Math.min(minX, d.x - r);
+      maxX = Math.max(maxX, d.x + r);
+      minY = Math.min(minY, d.y - r);
+      maxY = Math.max(maxY, d.y + r);
+    });
+  }
 
   if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
 
@@ -1625,8 +1751,10 @@ function fitGraph() {
   const H = +svg.attr('height');
   if (!W || !H) return;
 
-  const pad = 64;
-  const scale = Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxY - minY), 2.5);
+  const isGlobal = State.graphView === 'global';
+  const pad = isGlobal ? 86 : 64;
+  const maxScale = isGlobal ? 1.12 : 2.5;
+  const scale = Math.max(0.18, Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxY - minY), maxScale));
   const tx = (W - scale * (minX + maxX)) / 2;
   const ty = (H - scale * (minY + maxY)) / 2;
 
@@ -1659,7 +1787,7 @@ function renderGlobalView() {
   State.expandedDirection = null;
   if (State.graphView !== 'path' && State.graphView !== 'dir') State.graphView = 'global';
   State.activePathStep = null;
-  updateLayerDots(0);   // hide layer indicator — global view shows all levels at once
+  updateLayerDots(0);   // global overview
   updateBreadcrumb([]);
   const backBtn = document.getElementById('crumb-back-global');
   if (backBtn) backBtn.style.display = 'none';
@@ -1676,12 +1804,52 @@ function renderGlobalView() {
   const R_DIR     = 200;
   const R_TOPIC   = 380;
   const DIR_R_G   = 14;
-  // r = 5 + importance*2 → imp3=11, imp4=13, imp5=15 (3 visible steps)
-  const topicRadius = d => 5 + (d.importance || 3) * 2;
+  let globalTopicCount = 0;
+  const topicRadius = d => {
+    const base = 5 + (d.importance || 3) * 2;
+    if (globalTopicCount > 220) return Math.max(3.5, base * 0.62);
+    if (globalTopicCount > 140) return Math.max(4, base * 0.74);
+    if (globalTopicCount > 60) return Math.max(4.5, base * 0.84);
+    return base;
+  };
 
   const rawAreas  = State.graphData.nodes.filter(n => n.type === 'area');
   const rawDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
   const rawTopics = State.graphData.nodes.filter(n => n.type === 'topic');
+  globalTopicCount = rawTopics.length;
+  const denseGlobal = rawTopics.length > 60;
+  const globalLabelsExpanded = State.globalLabelMode === 'expanded';
+  const globalLabelBudget = denseGlobal
+    ? (globalLabelsExpanded
+      ? Math.min(80, Math.max(32, Math.round(rawTopics.length * 0.35)))
+      : Math.min(22, Math.max(10, Math.round(rawTopics.length * 0.13))))
+    : Infinity;
+  const globalLabeledTopicIds = new Set(rawTopics
+    .slice()
+    .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
+    .slice(0, globalLabelBudget)
+    .map(t => t.id));
+  document.getElementById('graph-svg')?.parentElement?.classList.toggle('global-density-mode', denseGlobal);
+  if (denseGlobal) {
+    showGraphScaleHint({
+      title: getLang() === 'en' ? `${rawTopics.length} topics · overview mode` : `${rawTopics.length} 个主题 · 总览模式`,
+      body: globalLabelsExpanded
+        ? (getLang() === 'en'
+          ? 'More labels are visible for scanning. Double-click a direction to enter details.'
+          : '已显示更多主题标签，便于巡检；双击方向可进入细节。')
+        : (getLang() === 'en'
+          ? 'Global view shows structure and density. Click a node for actions; double-click a direction for topics.'
+          : '全局视图承担结构与密度感知；单击节点看动作，双击方向进主题。'),
+      meta: getLang() === 'en'
+        ? 'Node size = importance · number = topics in direction'
+        : '节点大小=重要度 · 数字=方向下主题数',
+      actionLabel: globalLabelsExpanded
+        ? (getLang() === 'en' ? 'Overview labels' : '恢复总览')
+        : (getLang() === 'en' ? 'More labels' : '显示更多'),
+      action: 'toggle-global-labels',
+      tone: 'density'
+    });
+  }
 
   // Count topics per direction and per area for proportional sector sizing
   const topicsPerDir = {};
@@ -1751,8 +1919,8 @@ function renderGlobalView() {
       const ang = areaAngles[a.id] || { start: 0, end: 0 };
       return sectorArc.startAngle(ang.start).endAngle(ang.end)();
     })
-    .attr('fill', a => a.color).attr('fill-opacity', 0.07)
-    .attr('stroke', a => a.color).attr('stroke-opacity', 0.18).attr('stroke-width', 0.8);
+    .attr('fill', a => graphAreaColor(a.id, a.color)).attr('fill-opacity', 0.052)
+    .attr('stroke', a => graphAreaColor(a.id, a.color)).attr('stroke-opacity', 0.14).attr('stroke-width', 0.7);
 
   // ── Area labels (outside outer ring, icon + name) ──────────
   const areaLabelG = g.append('g').attr('class', 'g-area-labels');
@@ -1779,11 +1947,14 @@ function renderGlobalView() {
     })
     .filter(Boolean);
 
-  if (prereqLinks.length > 0) {
+  const visiblePrereqLinks = denseGlobal
+    ? prereqLinks.filter(l => globalLabeledTopicIds.has(l.source.id) && globalLabeledTopicIds.has(l.target.id)).slice(0, 72)
+    : prereqLinks;
+  if (visiblePrereqLinks.length > 0) {
     g.append('g').attr('class', 'g-prereq-links')
-      .selectAll('line').data(prereqLinks).join('line')
+      .selectAll('line').data(visiblePrereqLinks).join('line')
       .attr('class', 'link-prereq')
-      .attr('stroke-opacity', 0.30).attr('stroke-width', 0.8)
+      .attr('stroke-opacity', denseGlobal ? 0.18 : 0.30).attr('stroke-width', denseGlobal ? 0.65 : 0.8)
       .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
   }
@@ -1808,7 +1979,7 @@ function renderGlobalView() {
       if (s === 'mastered')   return '#30D158';
       if (s === 'learning')   return '#FF9F0A';
       if (s === 'needs_work') return '#FF453A';
-      return d.color || '#607D8B'; // unknown: use classification color
+      return graphNodeColor(d); // unknown: use harmonized classification color
     })
     .attr('fill-opacity', d => {
       if ((d.status || 'unknown') === 'unknown') return 0.22;
@@ -1820,15 +1991,16 @@ function renderGlobalView() {
       if (s === 'mastered')   return '#30D158';
       if (s === 'learning')   return '#FF9F0A';
       if (s === 'needs_work') return '#FF453A';
-      return d.color || '#607D8B';
+      return graphNodeColor(d);
     })
     .attr('stroke-width', 1.5);
 
   // Labels — tiny at global zoom, readable when user zooms in
   topicSel.append('text')
     .attr('dy', d => topicRadius(d) + 9)
-    .attr('class', 'node-label node-label-topic')
-    .style('font-size', '8px')
+    .attr('class', d => `node-label node-label-topic${globalLabeledTopicIds.has(d.id) ? ' is-core-label' : ''}`)
+    .style('font-size', denseGlobal ? '8.5px' : '8px')
+    .style('display', d => denseGlobal && !globalLabeledTopicIds.has(d.id) ? 'none' : null)
     .text(d => { const nm = entityName(d) || ''; return nm.length > 8 ? nm.slice(0, 7) + '…' : nm; });
 
   // ── Direction nodes (inner ring, domain color) ──────────────
@@ -1844,14 +2016,18 @@ function renderGlobalView() {
   dirSel.append('title').text(d => entityName(d) || '');
   dirSel.append('circle')
     .attr('r', DIR_R_G)
-    .attr('fill', d => d.color).attr('fill-opacity', 0.88)
-    .attr('stroke', d => d.color).attr('stroke-width', 1.8)
+    .attr('fill', d => graphNodeColor(d)).attr('fill-opacity', 0.86)
+    .attr('stroke', d => graphNodeColor(d)).attr('stroke-width', 1.8)
     .attr('class', 'node-circle');
   dirSel.append('path').attr('d', d => makeRingPath(d, DIR_R_G))
     .attr('fill', '#30D158').attr('opacity', 0.9);
   dirSel.append('text').attr('dy', DIR_R_G + 12)
     .attr('class', 'node-label').style('font-size', '10px')
     .text(d => { const nm = entityName(d) || ''; return nm.length > 9 ? nm.slice(0, 8) + '…' : nm; });
+  dirSel.append('text')
+    .attr('dy', -DIR_R_G - 7)
+    .attr('class', 'node-label node-count-badge')
+    .text(d => topicsPerDir[d.id] || 0);
 
   fitGraph();
   // Re-apply any active filter or search highlight after redraw
@@ -1863,7 +2039,12 @@ function renderGlobalView() {
 function clearActivePathStep() {
   State.activePathStep = null;
   document.querySelectorAll('.path-step.active').forEach(el => el.classList.remove('active'));
-  if (g) g.selectAll('.path-highlight').remove();
+  if (g) {
+    g.selectAll('.path-highlight, .path-route-ring').remove();
+    g.selectAll('.g-path-overlay').remove();
+    g.selectAll('.node-g').classed('path-node-active path-node-in-route', false);
+  }
+  document.getElementById('graph-svg')?.parentElement?.classList.remove('graph-path-mode');
 }
 
 // 切换全局/领域/路径/目录视图
@@ -1887,7 +2068,7 @@ function setGraphView(view) {
   if (view !== 'path') clearActivePathStep();
 
   if (view === 'path') {
-    // 路径视图：图谱显示全局总览（若尚未渲染则先渲染），侧栏显示路径
+    // 路径视图：右侧图谱必须随路径切换联动，而不是停留在普通总览。
     if (legend) legend.classList.add('hidden');
     if (nodeInfo) nodeInfo.classList.add('hidden');
     if (pathPanel) pathPanel.classList.remove('hidden');
@@ -1895,20 +2076,20 @@ function setGraphView(view) {
     if (gb) gb.classList.remove('active');
     if (db) db.classList.remove('active');
     if (pb) pb.classList.add('active');
-    updateLayerDots(0);   // hide layer dots in path view
-    // 仅在没有全局仿真数据时才重新渲染
-    if (!State.simulationNodes) {
-      renderGlobalView();
-      State.graphView = 'path';
-    }
+    renderGlobalView();
+    State.graphView = 'path';
+    updateLayerDots(0, getLang() === 'en' ? 'Path' : '路径');
+    const firstStep = State.activePathStep || getSuggestedPathStepId(State.activePath);
+    State.activePathStep = firstStep;
     renderPathPanel();
+    window.setTimeout(() => doHighlight(firstStep), 520);
   } else if (view === 'dir') {
     // 目录视图：侧栏显示树形目录，图谱保持全局总览
     if (legend) legend.classList.add('hidden');
     if (nodeInfo) nodeInfo.classList.add('hidden');
     if (pathPanel) pathPanel.classList.add('hidden');
     if (dirPanel) dirPanel.classList.remove('hidden');
-    updateLayerDots(0);
+    updateLayerDots(0, getLang() === 'en' ? 'Directory' : '目录');
     if (!State.simulationNodes) {
       renderGlobalView();
       State.graphView = 'dir';
@@ -1916,6 +2097,7 @@ function setGraphView(view) {
     renderDirPanel();
   } else {
     // 切回图谱视图：恢复侧栏，清除高亮
+    document.getElementById('graph-svg')?.parentElement?.classList.remove('graph-path-mode');
     if (legend) legend.classList.remove('hidden');
     if (nodeInfo) nodeInfo.classList.remove('hidden');
     if (pathPanel) pathPanel.classList.add('hidden');
@@ -2001,25 +2183,39 @@ function renderPathPanel() {
   // 进度摘要
   const pct = Math.round(masteredCount / path.steps.length * 100);
   if (metaEl) {
-    const desc = (getLang() === 'en' && path.desc_en) ? path.desc_en : (path.desc || '');
     metaEl.innerHTML = `<div class="path-progress-bar"><div class="path-progress-fill" style="width:${pct}%"></div></div>
-      <div class="path-progress-label">${escHtml(desc)}</div>
-      <button type="button" class="path-compare-hint" onclick="setActivePath(State.activePath === 'apply' ? 'understand' : 'apply')">${escHtml(t('path.compare_hint'))}</button>
       <div class="path-mastered-count">${escHtml(t('path.mastered_of', {n: masteredCount, total: path.steps.length}))}</div>`;
   }
 }
 
+function getSuggestedPathStepId(intent = State.activePath) {
+  const path = LEARNING_PATHS[intent];
+  if (!path || !path.steps?.length) return null;
+  const topics = State.graphData?.nodes?.filter(n => n.type === 'topic') || [];
+  return path.steps.find(id => {
+    const node = topics.find(n => n.id === id);
+    return node && node.status !== 'mastered';
+  }) || path.steps[0];
+}
+
 function setActivePath(intent) {
   State.activePath = intent;
-  State.activePathStep = null;
+  State.activePathStep = getSuggestedPathStepId(intent);
   const ab = document.getElementById('btn-apply-path');
   const ub = document.getElementById('btn-understand-path');
   if (ab) ab.classList.toggle('active', intent === 'apply');
   if (ub) ub.classList.toggle('active', intent === 'understand');
-  if (g) g.selectAll('.path-highlight').remove();
-  const detailEl = document.getElementById('path-node-detail');
-  if (detailEl) detailEl.innerHTML = '';
   renderPathPanel();
+  if (State.graphView !== 'path') {
+    setGraphView('path');
+  } else {
+    const targetStep = State.activePathStep;
+    renderGlobalView();
+    State.graphView = 'path';
+    State.activePathStep = targetStep;
+    updateLayerDots(0, getLang() === 'en' ? 'Path' : '路径');
+    window.setTimeout(() => doHighlight(targetStep), 520);
+  }
 }
 
 // 在全局图谱中高亮路径步骤节点，并在侧栏展示详情
@@ -2037,29 +2233,60 @@ function highlightInGlobal(topicId) {
 }
 
 function doHighlight(topicId) {
-  // 更新步骤列表的 active 状态
+  if (!topicId || !g) return;
+  State.activePathStep = topicId;
+
   document.querySelectorAll('.path-step').forEach(el => {
     el.classList.toggle('active', el.dataset.id === topicId);
   });
 
-  // 把高亮圆环附加在节点的 <g> 内部（随仿真移动）
-  g.selectAll('.path-highlight').remove();
-  const nodeG = g.select(`[data-id="${topicId}"]`);
-  if (!nodeG.empty()) {
-    nodeG.append('circle')
-      .attr('class', 'path-highlight')
-      .attr('r', 20)
-      .attr('fill', 'none')
-      .attr('stroke', '#FFD700')
-      .attr('stroke-width', 2.5)
-      .attr('pointer-events', 'none')
-      .attr('opacity', 0)
-      .transition().duration(280).attr('opacity', 1);
-  }
+  renderPathOverlay(topicId);
 
-  // 侧栏显示节点详情
   const topicNode = State.graphData?.nodes.find(n => n.id === topicId && n.type === 'topic');
   if (topicNode) showPathNodeDetail(topicNode);
+}
+
+function renderPathOverlay(activeTopicId = State.activePathStep) {
+  if (!g || !State.graphData) return;
+  const path = LEARNING_PATHS[State.activePath];
+  if (!path) return;
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (wrap) wrap.classList.add('graph-path-mode');
+
+  const stepSet = new Set(path.steps);
+  g.selectAll('.g-path-overlay').remove();
+  g.selectAll('.path-highlight, .path-route-ring').remove();
+  g.selectAll('.node-g')
+    .classed('path-node-in-route', d => d && stepSet.has(d.id))
+    .classed('path-node-active', d => d && d.id === activeTopicId);
+
+  const positioned = path.steps.map((id, index) => {
+    const node = getRenderedNodeDatum(id);
+    return node && typeof node.x === 'number' && typeof node.y === 'number'
+      ? { ...node, stepIndex: index }
+      : null;
+  }).filter(Boolean);
+  if (!positioned.length) return;
+
+  const overlay = g.append('g').attr('class', 'g-path-overlay');
+  const pairs = [];
+  for (let i = 1; i < positioned.length; i++) pairs.push({ source: positioned[i - 1], target: positioned[i] });
+  overlay.selectAll('line')
+    .data(pairs)
+    .join('line')
+    .attr('class', 'path-route-line')
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+
+  positioned.forEach(item => {
+    const nodeG = g.select(`[data-id="${item.id}"]`);
+    if (nodeG.empty()) return;
+    nodeG.append('circle')
+      .attr('class', item.id === activeTopicId ? 'path-highlight' : 'path-route-ring')
+      .attr('r', item.id === activeTopicId ? 23 : 18)
+      .attr('fill', 'none')
+      .attr('pointer-events', 'none');
+  });
 }
 
 function showPathNodeDetail(d) {
@@ -2070,18 +2297,28 @@ function showPathNodeDetail(d) {
   const statusLabel = getStatusLabel(status, d.tested);
   const displayName = entityName(d);
   const displayNameAlt = getLang() === 'en' ? (d.name || '') : (d.name_en || '');
+  const path = LEARNING_PATHS[State.activePath];
+  const idx = path?.steps?.indexOf(d.id) ?? -1;
+  const prevId = idx > 0 ? path.steps[idx - 1] : '';
+  const nextId = idx >= 0 && idx < path.steps.length - 1 ? path.steps[idx + 1] : '';
   el.innerHTML = `
     <div class="path-detail-card">
+      <div class="path-detail-kicker">${idx >= 0 ? escHtml(`${idx + 1} / ${path.steps.length}`) : ''}</div>
       <div class="path-detail-name">${escHtml(displayName)}</div>
       ${displayNameAlt ? `<div class="path-detail-en">${escHtml(displayNameAlt)}</div>` : ''}
       <span class="node-status-badge ${statusClass}">${escHtml(statusLabel)}</span>
       ${d.description ? `<div class="path-detail-desc">${escHtml(d.description)}</div>` : ''}
+      <div class="path-detail-nav">
+        <button type="button" data-nav="prev" ${prevId ? '' : 'disabled'}>${getLang() === 'en' ? '← Previous' : '← 上一步'}</button>
+        <button type="button" data-nav="next" ${nextId ? '' : 'disabled'}>${getLang() === 'en' ? 'Next →' : '下一步 →'}</button>
+      </div>
       <button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_this_topic'))}</button>
     </div>
   `;
-  el.querySelector('[data-action="quiz"]').addEventListener('click', () => startTopicQuiz(d.id));
+  el.querySelector('[data-action="quiz"]')?.addEventListener('click', () => startTopicQuiz(d.id));
+  el.querySelector('[data-nav="prev"]')?.addEventListener('click', () => prevId && highlightInGlobal(prevId));
+  el.querySelector('[data-nav="next"]')?.addEventListener('click', () => nextId && highlightInGlobal(nextId));
 }
-
 // ============================================================
 // 目录视图
 // ============================================================
