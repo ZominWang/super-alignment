@@ -1692,21 +1692,38 @@ function zoomIn() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1.
 function zoomOut() { svg.transition().duration(250).call(zoomBehavior.scaleBy, 1 / 1.3); }
 function resetZoom() { fitGraph(); }
 
-// 计算节点包围盒并自动居中缩放到视口
+// 计算图谱包围盒并自动居中缩放到视口
 function fitGraph() {
   if (!svg || !g) return;
   const nodes = g.selectAll('.node-g');
   if (nodes.empty()) return;
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  nodes.each(function(d) {
-    if (!d || d.x == null || d.y == null) return;
-    const r = d.type === 'area' ? AREA_R + 8 : d.type === 'direction' ? DIR_R + 6 : TOPIC_R + 4;
-    minX = Math.min(minX, d.x - r);
-    maxX = Math.max(maxX, d.x + r);
-    minY = Math.min(minY, d.y - r);
-    maxY = Math.max(maxY, d.y + r);
-  });
+
+  // Prefer the rendered SVG bounds: global view has sectors, area labels and badges
+  // outside node centers. Fitting only nodes makes the first view feel cropped.
+  try {
+    const box = g.node()?.getBBox?.();
+    if (box && box.width > 0 && box.height > 0) {
+      minX = box.x;
+      maxX = box.x + box.width;
+      minY = box.y;
+      maxY = box.y + box.height;
+    }
+  } catch (e) {
+    // Some SVG states can throw while transitions are settling; fall back below.
+  }
+
+  if (!isFinite(minX) || maxX <= minX || maxY <= minY) {
+    nodes.each(function(d) {
+      if (!d || d.x == null || d.y == null) return;
+      const r = d.type === 'area' ? AREA_R + 8 : d.type === 'direction' ? DIR_R + 6 : TOPIC_R + 4;
+      minX = Math.min(minX, d.x - r);
+      maxX = Math.max(maxX, d.x + r);
+      minY = Math.min(minY, d.y - r);
+      maxY = Math.max(maxY, d.y + r);
+    });
+  }
 
   if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
 
@@ -1714,8 +1731,10 @@ function fitGraph() {
   const H = +svg.attr('height');
   if (!W || !H) return;
 
-  const pad = 64;
-  const scale = Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxY - minY), 2.5);
+  const isGlobal = State.graphView === 'global';
+  const pad = isGlobal ? 86 : 64;
+  const maxScale = isGlobal ? 1.12 : 2.5;
+  const scale = Math.max(0.18, Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxY - minY), maxScale));
   const tx = (W - scale * (minX + maxX)) / 2;
   const ty = (H - scale * (minY + maxY)) / 2;
 
