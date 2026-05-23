@@ -131,6 +131,12 @@ bash run.sh
 http://localhost:5001
 ```
 
+#### 不用命令行？
+
+直接访问在线版，零安装，开浏览器即用：
+
+👉 **[zominwang.github.io/super-alignment](https://zominwang.github.io/super-alignment/)**
+
 `run.sh` 会自动创建虚拟环境、安装依赖、运行 `build.py` 编译静态数据，并启动本地 HTTP 服务。
 
 #### 手动构建与预览
@@ -387,6 +393,12 @@ Then open:
 ```text
 http://localhost:5001
 ```
+
+#### No command line?
+
+Use the hosted version — zero install, just open your browser:
+
+👉 **[zominwang.github.io/super-alignment](https://zominwang.github.io/super-alignment/)**
 
 `run.sh` creates a virtual environment, installs dependencies, runs `build.py`, and starts a local static HTTP server.
 
