@@ -2409,15 +2409,18 @@ body {
   box-shadow: 0 18px 42px rgba(0,0,0,.34);
   backdrop-filter: blur(20px) saturate(1.25);
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-6px) scale(.98);
   pointer-events: none;
-  transition: opacity .16s ease, transform .16s ease;
+  transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
 }
 .top-export-menu:hover .top-export-popover,
 .top-export-menu:focus-within .top-export-popover {
   opacity: 1;
+  visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+  transition-delay: 0s;
 }
 .top-export-popover button {
   min-height: 32px;
@@ -3585,3 +3588,24 @@ body.export-modal-open .top-export-popover {
 .diagnostic-card-quick .diagnostic-pill { grid-area: pill; width: fit-content; }
 .diagnostic-card-quick h3 { grid-area: title; margin: 0; }
 .diagnostic-card-quick .btn-primary { grid-area: action; white-space: nowrap; }
+
+
+/* Clipping fixes: panels should scroll internally or disappear cleanly, never sit half-covered. */
+.search-results-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.search-results-panel {
+  max-height: min(70vh, calc(100vh - var(--tab-h) - 28px));
+}
+body:has(.top-export-menu:hover) .graph-scale-hint,
+body:has(.top-export-menu:focus-within) .graph-scale-hint {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scale(.96);
+}
+.node-action-fan {
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+}

@@ -1134,7 +1134,8 @@ function endpointId(edge, side) {
 }
 
 function positionNodeActionFan(menu, wrap, point) {
-  const pad = 78;
+  const actionCount = menu.querySelectorAll('.fan-action').length || 4;
+  const pad = actionCount > 2 ? 132 : 112;
   const x = Math.max(pad, Math.min(wrap.clientWidth - pad, point.x));
   const y = Math.max(pad, Math.min(wrap.clientHeight - pad, point.y));
   menu.style.left = `${x}px`;
