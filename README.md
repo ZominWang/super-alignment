@@ -18,7 +18,7 @@
 
 **Super Alignment** 帮助 AI 学习者回答三个问题：
 
-1. **我现在在哪？** — 打开一张覆盖 5 大领域、74 个主题的交互式知识地图
+1. **我现在在哪？** — 打开一张覆盖 5 大领域、133 个主题的交互式知识地图
 2. **下一步学什么？** — 做 5 分钟诊断测评，系统告诉你薄弱方向并推荐下一步
 3. **怎么带走？** — 一键导出为 Obsidian Vault、Anki 卡片组或纯 Markdown，回到你熟悉的工具继续沉淀
 
@@ -33,9 +33,10 @@
 <td width="50%">
 
 ### 🗺 交互式知识图谱
-- 5 大领域 · 15 个方向 · 74 个主题，一屏全览
+- 5 大领域 · 15 个方向 · 133 个主题，一屏全览
 - 节点大小 = 重要性，颜色 = 掌握度，连线 = 前置依赖
 - 四种视角：全局总览 / 领域浏览 / 目录 / 学习路径
+- 点击主题节点即可查看**知识摘要**与**参考资料**（论文、视频、博文、课程链接）
 
 ### 📝 分级测评
 - **快速定位**（5 题 / 1 分钟）：入门即用
@@ -121,7 +122,7 @@ super-alignment/
 ├── vault/                  ← 唯一内容源（Markdown）
 │   ├── areas/       (5)    领域
 │   ├── directions/  (15)   方向
-│   ├── topics/      (74)   主题 + Quiz
+│   ├── topics/      (133)  主题 + Quiz + 参考资料
 │   └── paths/       (2)    学习路径
 ├── web/                    ← 纯静态前端（零后端）
 │   ├── index.html           入口
@@ -150,7 +151,7 @@ prerequisites: [embeddings, basic_prompting]
 tags: [rag, retrieval, generation]
 ---
 
-知识点正文…
+知识点正文（会显示在节点侧边卡片里）…
 
 ## Quiz
 
@@ -163,9 +164,17 @@ tags: [rag, retrieval, generation]
 - D. Recurrent Auto-Generation
 
 **解析**: RAG = Retrieval-Augmented Generation，由 Lewis et al. (2020) 提出…
+
+## 参考资料
+
+### 论文
+- **[Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks]**(Lewis et al., 2020) — RAG 的奠基论文。https://arxiv.org/abs/2005.11401
+
+### 博文/教程
+- **[What is RAG?]** — LangChain 官方文档。适合快速入门。https://python.langchain.com/docs/concepts/rag/
 ```
 
-新增或修改后运行 `python build.py --no-validate` 即生效。
+新增或修改后运行 `python build.py --no-validate` 即生效。参考资料中的链接会在节点卡片里自动渲染为可点击的链接。
 
 <br>
 
