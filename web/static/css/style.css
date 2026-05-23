@@ -3611,3 +3611,56 @@ body:has(.top-export-menu:focus-within) .graph-scale-hint {
   max-height: calc(100% - 24px);
 }
 
+/* ── Topic body + references ──────────────────────────────── */
+.topic-body-text {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text);
+  padding: 10px 0 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.topic-refs-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.topic-refs-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 8px;
+}
+.topic-refs-group {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 10px 0 4px;
+}
+.topic-refs-group:first-of-type {
+  margin-top: 4px;
+}
+.topic-refs-item {
+  margin: 6px 0;
+}
+.topic-refs-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+.topic-refs-link:hover {
+  text-decoration: underline;
+  opacity: .85;
+}
+.topic-refs-desc {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+

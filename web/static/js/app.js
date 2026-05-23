@@ -1379,6 +1379,8 @@ function showNodeInfo(d) {
     mkChain(prereqIds, 'node.prerequisites');
     mkChain(dependIds, 'node.leads_to');
 
+    appendTopicContent(card, d);
+
   } else if (d.type === 'direction') {
     const countEl = document.createElement('div');
     countEl.className = 'node-info-count';
@@ -1394,6 +1396,85 @@ function showNodeInfo(d) {
 
   nfcBody.replaceChildren(card);
   floatCard.classList.remove('hidden');
+}
+
+function appendTopicContent(card, d) {
+  const full = getTopicFull(d.id);
+  if (!full) return;
+
+  const body = (full.body || '').trim();
+  if (body) {
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'topic-body-text';
+    bodyEl.textContent = body;
+    card.appendChild(bodyEl);
+  }
+
+  const bodyFull = full.body_full || '';
+  const refsIdx = bodyFull.indexOf('## 参考资料');
+  if (refsIdx === -1) return;
+
+  const section = document.createElement('div');
+  section.className = 'topic-refs-section';
+  const lines = bodyFull.slice(refsIdx).split('\n');
+  for (const line of lines) {
+    if (line.startsWith('## ')) {
+      const h = document.createElement('div');
+      h.className = 'topic-refs-title';
+      h.textContent = line.slice(3).trim();
+      section.appendChild(h);
+    } else if (line.startsWith('### ')) {
+      const h = document.createElement('div');
+      h.className = 'topic-refs-group';
+      h.textContent = line.slice(4).trim();
+      section.appendChild(h);
+    } else if (line.match(/^- .+/)) {
+      renderRefItem(section, line.slice(2));
+    }
+  }
+  if (section.children.length > 1) card.appendChild(section);
+}
+
+function renderRefItem(parent, text) {
+  const item = document.createElement('div');
+  item.className = 'topic-refs-item';
+  const urlMatch = text.match(/https?:\/\/\S+/);
+  const titleMatch = text.match(/\*\*\[([^\]]+)\]\*\*/);
+  const url = urlMatch ? urlMatch[0] : null;
+  const title = titleMatch ? titleMatch[1] : null;
+  if (url && title) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'topic-refs-link';
+    a.textContent = title;
+    item.appendChild(a);
+    const desc = text
+      .replace(/\*\*\[[^\]]+\]\*\*(\([^)]*\))?/, '')
+      .replace(/https?:\/\/\S+/, '')
+      .replace(/^[\s—\-]+|[\s—\-]+$/g, '')
+      .replace(/——$/, '')
+      .trim();
+    if (desc) {
+      const span = document.createElement('span');
+      span.className = 'topic-refs-desc';
+      span.textContent = desc;
+      item.appendChild(span);
+    }
+  } else {
+    item.textContent = text.replace(/https?:\/\/\S+/, '').trim();
+    if (url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'topic-refs-link';
+      a.textContent = '→ 链接';
+      item.appendChild(a);
+    }
+  }
+  parent.appendChild(item);
 }
 
 function _addBtn(parent, cls, action, label) {
