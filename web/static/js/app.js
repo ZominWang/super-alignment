@@ -278,29 +278,49 @@ function showExportPreview(kind) {
   title.textContent = `导出 ${meta.title}`;
   body.innerHTML = `<p>${escHtml(meta.desc)}</p><div class="export-preview-list">${meta.items.map(i => `<span>✓ ${escHtml(i)}</span>`).join('')}</div><div class="export-preview-note">导出不会锁定你的内容；它只是把同一套知识源分发到你选择的工具。</div>`;
   confirmBtn.onclick = () => doExport(kind);
+  document.body.classList.add('export-modal-open');
   overlay.classList.remove('hidden');
   modal.classList.remove('hidden');
+  modal.classList.remove('modal-enter');
+  void modal.offsetWidth;
+  modal.classList.add('modal-enter');
   trackEvent('export_preview_shown', { kind });
 }
 
 function closeExportPreview() {
+  const confirmBtn = document.getElementById('export-preview-confirm');
+  setButtonBusy(confirmBtn, false);
+  document.body.classList.remove('export-modal-open');
   document.getElementById('export-preview-modal')?.classList.add('hidden');
   document.getElementById('export-modal-overlay')?.classList.add('hidden');
 }
 
 function doExport(kind) {
   trackEvent('export_start', { kind });
+  const confirmBtn = document.getElementById('export-preview-confirm');
   const fn = window.Export?.[kind];
   if (typeof fn === 'function') {
-    fn();
-    closeExportPreview();
-    completeOnboardStep('export');
-    trackEvent('export_complete', { kind });
-    showToast(getLang() === 'en' ? 'Export started. Keep learning in your own tools.' : '已开始导出。继续在你熟悉的工具里沉淀。');
+    setButtonBusy(confirmBtn, true, getLang() === 'en' ? 'Preparing…' : '准备中…');
+    window.setTimeout(() => {
+      try {
+        fn();
+        closeExportPreview();
+        completeOnboardStep('export');
+        trackEvent('export_complete', { kind });
+        showToast(
+          getLang() === 'en' ? 'Export started. Keep learning in your own tools.' : '已开始导出，继续在你熟悉的工具里沉淀。',
+          { tone: 'success', duration: 3200 }
+        );
+      } catch (e) {
+        showToast(getLang() === 'en' ? 'Export failed. Please try again.' : '导出失败，请重试。', { tone: 'error' });
+      } finally {
+        setButtonBusy(confirmBtn, false);
+      }
+    }, 180);
     return;
   }
   closeExportPreview();
-  showToast(getLang() === 'en' ? 'Export is not available in this build' : '当前构建暂未接入导出能力');
+  showToast(getLang() === 'en' ? 'Export is not available in this build' : '当前构建暂未接入导出能力', { tone: 'warning' });
 }
 
 function maybeShowExportMilestone(progress) {
@@ -310,7 +330,10 @@ function maybeShowExportMilestone(progress) {
   const key = `kg_export_nudged_${milestone}`;
   if (localStorage.getItem(key) === '1') return;
   localStorage.setItem(key, '1');
-  showToast(getLang() === 'en' ? `You have ${count} active topics — consider exporting them.` : `你已有 ${count} 个学习过的主题，可以导出到笔记工具沉淀。`);
+  showToast(
+    getLang() === 'en' ? `You have ${count} active topics — consider exporting them.` : `你已有 ${count} 个学习过的主题，可以导出到笔记工具沉淀。`,
+    { tone: 'success', actionLabel: getLang() === 'en' ? 'Export' : '去导出', onAction: () => showExportPreview('obsidian'), duration: 5200 }
+  );
 }
 
 // ============================================================
@@ -657,8 +680,29 @@ function initGraph() {
 
 function clearGraph() {
   clearNodeFocus({ keepCard: true });
+  document.getElementById('graph-svg')?.parentElement?.classList.remove('global-density-mode');
+  hideGraphScaleHint();
   if (simulation) simulation.stop();
   g.selectAll('*').remove();
+}
+
+function showGraphScaleHint({ title, body, tone = 'info' } = {}) {
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (!wrap || !title) return;
+  let hint = document.getElementById('graph-scale-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'graph-scale-hint';
+    hint.className = 'graph-scale-hint';
+    wrap.appendChild(hint);
+  }
+  hint.className = `graph-scale-hint graph-scale-hint-${tone}`;
+  hint.innerHTML = `<strong>${escHtml(title)}</strong><span>${escHtml(body || '')}</span>`;
+  hint.classList.add('show');
+}
+
+function hideGraphScaleHint() {
+  document.getElementById('graph-scale-hint')?.classList.remove('show');
 }
 
 function renderAreaLevel() {
@@ -810,13 +854,48 @@ function expandDirection(dirId) {
   const wrap = document.getElementById('graph-svg').parentElement;
   const W = wrap.clientWidth, H = wrap.clientHeight;
 
+  const parentAreaId = `parent-${areaId}`;
+  const areaContextN = areaNode
+    ? {
+        ...areaNode,
+        id: parentAreaId,
+        originalId: areaId,
+        type: 'parent_area',
+        fx: W / 2,
+        fy: Math.max(78, H / 2 - 185),
+      }
+    : null;
   const dirN = { ...dirNode, fx: W / 2, fy: H / 2 };
   const topicNodes = State.graphData.nodes
     .filter(n => n.type === 'topic' && n.direction === dirId)
     .map(n => ({ ...n, x: W / 2 + (Math.random() - 0.5) * 250, y: H / 2 + (Math.random() - 0.5) * 250 }));
+  const denseDirection = topicNodes.length > 18;
+  const topicLabelBudget = denseDirection ? 14 : Infinity;
+  const labeledTopicIds = new Set(topicNodes
+    .slice()
+    .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
+    .slice(0, topicLabelBudget)
+    .map(t => t.id));
+  const topicNodeRadius = d => {
+    if (d.type !== 'topic') return d.type === 'direction' ? DIR_R : 22;
+    const base = 5 + (d.importance || 3) * 2;
+    return denseDirection ? Math.max(7, base * 0.82) : base;
+  };
+  if (denseDirection) {
+    showGraphScaleHint({
+      title: getLang() === 'en' ? `${topicNodes.length} topics in this direction` : `本方向 ${topicNodes.length} 个主题`,
+      body: getLang() === 'en'
+        ? 'Showing core labels only. Use search or the directory for exact topics.'
+        : '仅显示核心主题标签；精确查找请用搜索或目录。',
+      tone: 'density'
+    });
+  }
 
-  const allNodes = [dirN, ...topicNodes];
-  const links = topicNodes.map(t => ({ source: dirId, target: t.id, type: 'dir_topic' }));
+  const allNodes = [areaContextN, dirN, ...topicNodes].filter(Boolean);
+  const links = [
+    ...(areaContextN ? [{ source: parentAreaId, target: dirId, type: 'area_dir_context' }] : []),
+    ...topicNodes.map(t => ({ source: dirId, target: t.id, type: 'dir_topic' }))
+  ];
 
   // 添加前置知识链接（topic -> topic）
   const prereqLinks = [];
@@ -835,29 +914,37 @@ function expandDirection(dirId) {
     .force('link', d3.forceLink(allLinks).id(d => d.id).distance(130).strength(0.7))
     .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : TOPIC_R + 12))
+    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : d.type === 'parent_area' ? 34 : TOPIC_R + 12))
     .on('tick', ticked);
 
   // 链接
   g.selectAll('.link-g')
     .data(allLinks).join('line')
-    .attr('class', d => d.type === 'prereq' ? 'link-prereq' : 'link-line');
+    .attr('class', d => d.type === 'prereq' ? 'link-prereq' : d.type === 'area_dir_context' ? 'link-parent-context' : 'link-line');
 
   // 节点
   const node = g.selectAll('.node-g')
     .data(allNodes).join('g')
     .attr('class', 'node-g')
     .attr('data-id', d => d.id)
-    .style('cursor', 'pointer')
+    .style('cursor', d => d.type === 'parent_area' ? 'zoom-out' : 'pointer')
     .on('click', (e, d) => {
       e.stopPropagation();
+      if (d.type === 'parent_area') {
+        expandArea(d.originalId || areaId);
+        const actualArea = State.graphData.nodes.find(n => n.id === (d.originalId || areaId));
+        if (actualArea) showNodeInfo(actualArea);
+        return;
+      }
       showNodeInfo(d);
     });
 
   node.append('title').text(d => entityName(d) || '');
   node.append('circle')
-    .attr('r', d => d.type === 'direction' ? DIR_R : (5 + (d.importance || 3) * 2))
+    .attr('r', d => topicNodeRadius(d))
     .attr('fill', d => {
+      if (d.type === 'parent_area') return d.color || '#607D8B';
+      if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
       if (s === 'mastered')   return '#30D158';
@@ -866,10 +953,12 @@ function expandDirection(dirId) {
       return d.color || '#607D8B'; // unknown: classification color
     })
     .attr('fill-opacity', d => {
+      if (d.type === 'parent_area') return 0.18;
       if (d.type === 'direction') return 0.9;
       return (d.status || 'unknown') === 'unknown' ? 0.22 : 0.88;
     })
     .attr('stroke', d => {
+      if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
       if (s === 'mastered')   return '#30D158';
@@ -877,7 +966,7 @@ function expandDirection(dirId) {
       if (s === 'needs_work') return '#FF453A';
       return d.color || '#607D8B';
     })
-    .attr('stroke-width', d => d.type === 'direction' ? 2 : 1.5)
+    .attr('stroke-width', d => d.type === 'parent_area' ? 1.8 : d.type === 'direction' ? 2 : 1.5)
     .attr('class', 'node-circle');
 
   // 方向中心节点也显示进度环
@@ -887,9 +976,20 @@ function expandDirection(dirId) {
     .attr('fill', '#30D158').attr('opacity', 0.9);
 
   node.append('text')
-    .attr('dy', d => d.type === 'direction' ? '4' : '20')
-    .attr('class', 'node-label')
-    .style('font-size', d => d.type === 'direction' ? '11px' : '10px')
+    .attr('dy', d => d.type === 'direction' ? '4' : d.type === 'parent_area' ? '-2' : '20')
+    .attr('class', d => `node-label${d.type === 'parent_area' ? ' node-label-parent' : d.type === 'topic' ? ' node-label-topic-detail' : ''}`)
+    .style('font-size', d => d.type === 'direction' ? '11px' : d.type === 'parent_area' ? '16px' : '10px')
+    .style('display', d => d.type === 'topic' && denseDirection && !labeledTopicIds.has(d.id) ? 'none' : null)
+    .text(d => {
+      if (d.type === 'parent_area') return d.icon || '↖';
+      const n = entityName(d) || '';
+      return n.length > 8 ? n.slice(0, 8) + '…' : n;
+    });
+
+  node.filter(d => d.type === 'parent_area')
+    .append('text')
+    .attr('dy', 34)
+    .attr('class', 'node-label node-label-parent-name')
     .text(d => {
       const n = entityName(d) || '';
       return n.length > 8 ? n.slice(0, 8) + '…' : n;
@@ -921,7 +1021,7 @@ function clearNodeFocus(options = {}) {
   if (wrap) wrap.classList.remove('graph-focus-mode');
   if (g) {
     g.selectAll('.node-g').classed('is-selected', false);
-    g.selectAll('.link-line, .link-prereq').classed('is-focus-link', false);
+    g.selectAll('.link-line, .link-prereq, .link-parent-context').classed('is-focus-link', false);
   }
   const menu = document.getElementById('node-action-fan');
   if (menu) menu.classList.remove('show', 'is-ready');
@@ -951,7 +1051,7 @@ function focusGraphNode(d) {
   const wrap = document.getElementById('graph-svg')?.parentElement;
   if (wrap) wrap.classList.add('graph-focus-mode');
   g.selectAll('.node-g').classed('is-selected', n => n && n.id === focusDatum.id);
-  g.selectAll('.link-line, .link-prereq').classed('is-focus-link', edge => {
+  g.selectAll('.link-line, .link-prereq, .link-parent-context').classed('is-focus-link', edge => {
     const sid = endpointId(edge, 'source');
     const tid = endpointId(edge, 'target');
     return sid === focusDatum.id || tid === focusDatum.id;
@@ -1318,10 +1418,14 @@ async function updateTopicStatusFromCard(topicId, status) {
     await renderLearningCockpit();
     trackEvent('topic_status_update', { topicId, status });
     const updated = (State.graphData?.nodes || []).find(n => n.id === topicId && n.type === 'topic');
+    if (g) {
+      g.selectAll('.node-g').filter(n => n && n.id === topicId).classed('status-updated', true);
+      setTimeout(() => g?.selectAll('.node-g').classed('status-updated', false), 950);
+    }
     if (updated) showNodeInfo(updated);
     showToast(status === 'mastered'
       ? (getLang() === 'en' ? 'Marked as mastered' : '已标记为掌握')
-      : (getLang() === 'en' ? 'Marked as learning' : '已标记为学习中'));
+      : (getLang() === 'en' ? 'Marked as learning' : '已标记为学习中'), { tone: status === 'mastered' ? 'success' : 'info' });
   } catch (e) {
     showToast(getLang() === 'en' ? 'Status update failed' : '状态更新失败');
   }
@@ -1331,18 +1435,58 @@ function callExport(kind) {
   showExportPreview(kind);
 }
 
-function showToast(message) {
+function showToast(message, options = {}) {
   let el = document.getElementById('app-toast');
   if (!el) {
     el = document.createElement('div');
     el.id = 'app-toast';
     el.className = 'app-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
     document.body.appendChild(el);
   }
-  el.textContent = message;
+  const tone = options.tone || 'info';
+  el.className = `app-toast app-toast-${tone}`;
+  const actionHtml = options.actionLabel
+    ? `<button type="button" class="app-toast-action">${escHtml(options.actionLabel)}</button>`
+    : '';
+  el.innerHTML = `<span class="app-toast-dot"></span><span class="app-toast-message">${escHtml(message)}</span>${actionHtml}`;
+  const actionBtn = el.querySelector('.app-toast-action');
+  if (actionBtn && typeof options.onAction === 'function') {
+    actionBtn.addEventListener('click', () => {
+      options.onAction();
+      el.classList.remove('show');
+    }, { once: true });
+  }
   el.classList.add('show');
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => el.classList.remove('show'), 1800);
+  showToast._timer = setTimeout(() => el.classList.remove('show'), options.duration || 2600);
+}
+
+function setButtonBusy(button, busy, busyText) {
+  if (!button) return;
+  if (busy) {
+    if (!button.dataset.idleText) button.dataset.idleText = button.textContent;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.classList.add('is-loading');
+    if (busyText) button.textContent = busyText;
+  } else {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.classList.remove('is-loading');
+    if (button.dataset.idleText) button.textContent = button.dataset.idleText;
+    delete button.dataset.idleText;
+  }
+}
+
+async function runWithButtonFeedback(button, busyText, task) {
+  setButtonBusy(button, true, busyText);
+  try {
+    return await task();
+  } finally {
+    setButtonBusy(button, false);
+  }
 }
 
 async function startTopicQuiz(topicId) {
@@ -1352,6 +1496,7 @@ async function startTopicQuiz(topicId) {
   hide('quiz-home-view');
   hide('quiz-result-view');
   hide('direction-result-view');
+  document.getElementById('quiz-flow-view')?.classList.remove('quiz-flow-enter');
 
   const topicNode = (State.graphData?.nodes || []).find(n => n.id === topicId);
   try {
@@ -1574,12 +1719,36 @@ function renderGlobalView() {
   const R_DIR     = 200;
   const R_TOPIC   = 380;
   const DIR_R_G   = 14;
-  // r = 5 + importance*2 → imp3=11, imp4=13, imp5=15 (3 visible steps)
-  const topicRadius = d => 5 + (d.importance || 3) * 2;
+  let globalTopicCount = 0;
+  const topicRadius = d => {
+    const base = 5 + (d.importance || 3) * 2;
+    if (globalTopicCount > 220) return Math.max(3.5, base * 0.62);
+    if (globalTopicCount > 140) return Math.max(4, base * 0.74);
+    if (globalTopicCount > 60) return Math.max(4.5, base * 0.84);
+    return base;
+  };
 
   const rawAreas  = State.graphData.nodes.filter(n => n.type === 'area');
   const rawDirs   = State.graphData.nodes.filter(n => n.type === 'direction');
   const rawTopics = State.graphData.nodes.filter(n => n.type === 'topic');
+  globalTopicCount = rawTopics.length;
+  const denseGlobal = rawTopics.length > 60;
+  const globalLabelBudget = denseGlobal ? Math.min(22, Math.max(10, Math.round(rawTopics.length * 0.13))) : Infinity;
+  const globalLabeledTopicIds = new Set(rawTopics
+    .slice()
+    .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
+    .slice(0, globalLabelBudget)
+    .map(t => t.id));
+  document.getElementById('graph-svg')?.parentElement?.classList.toggle('global-density-mode', denseGlobal);
+  if (denseGlobal) {
+    showGraphScaleHint({
+      title: getLang() === 'en' ? `${rawTopics.length} topics · overview mode` : `${rawTopics.length} 个主题 · 总览模式`,
+      body: getLang() === 'en'
+        ? 'Global view shows structure and density. Click a direction to inspect topics.'
+        : '全局视图只承担结构与密度感知；点击方向查看具体主题。',
+      tone: 'density'
+    });
+  }
 
   // Count topics per direction and per area for proportional sector sizing
   const topicsPerDir = {};
@@ -1677,11 +1846,14 @@ function renderGlobalView() {
     })
     .filter(Boolean);
 
-  if (prereqLinks.length > 0) {
+  const visiblePrereqLinks = denseGlobal
+    ? prereqLinks.filter(l => globalLabeledTopicIds.has(l.source.id) && globalLabeledTopicIds.has(l.target.id)).slice(0, 72)
+    : prereqLinks;
+  if (visiblePrereqLinks.length > 0) {
     g.append('g').attr('class', 'g-prereq-links')
-      .selectAll('line').data(prereqLinks).join('line')
+      .selectAll('line').data(visiblePrereqLinks).join('line')
       .attr('class', 'link-prereq')
-      .attr('stroke-opacity', 0.30).attr('stroke-width', 0.8)
+      .attr('stroke-opacity', denseGlobal ? 0.18 : 0.30).attr('stroke-width', denseGlobal ? 0.65 : 0.8)
       .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
   }
@@ -1725,8 +1897,9 @@ function renderGlobalView() {
   // Labels — tiny at global zoom, readable when user zooms in
   topicSel.append('text')
     .attr('dy', d => topicRadius(d) + 9)
-    .attr('class', 'node-label node-label-topic')
-    .style('font-size', '8px')
+    .attr('class', d => `node-label node-label-topic${globalLabeledTopicIds.has(d.id) ? ' is-core-label' : ''}`)
+    .style('font-size', denseGlobal ? '8.5px' : '8px')
+    .style('display', d => denseGlobal && !globalLabeledTopicIds.has(d.id) ? 'none' : null)
     .text(d => { const nm = entityName(d) || ''; return nm.length > 8 ? nm.slice(0, 7) + '…' : nm; });
 
   // ── Direction nodes (inner ring, domain color) ──────────────
@@ -1750,6 +1923,10 @@ function renderGlobalView() {
   dirSel.append('text').attr('dy', DIR_R_G + 12)
     .attr('class', 'node-label').style('font-size', '10px')
     .text(d => { const nm = entityName(d) || ''; return nm.length > 9 ? nm.slice(0, 8) + '…' : nm; });
+  dirSel.append('text')
+    .attr('dy', -DIR_R_G - 7)
+    .attr('class', 'node-label node-count-badge')
+    .text(d => topicsPerDir[d.id] || 0);
 
   fitGraph();
   // Re-apply any active filter or search highlight after redraw
@@ -2100,8 +2277,10 @@ function renderDirectionsGrid() {
 }
 
 // 全局/快速诊断
-document.getElementById('btn-start-diagnostic')?.addEventListener('click', startDiagnostic);
-document.getElementById('btn-start-quick-diagnostic')?.addEventListener('click', startQuickDiagnostic);
+document.getElementById('btn-start-diagnostic')?.addEventListener('click', (e) =>
+  runWithButtonFeedback(e.currentTarget, getLang() === 'en' ? 'Loading…' : '加载题库…', startDiagnostic));
+document.getElementById('btn-start-quick-diagnostic')?.addEventListener('click', (e) =>
+  runWithButtonFeedback(e.currentTarget, getLang() === 'en' ? 'Loading…' : '加载题库…', startQuickDiagnostic));
 
 function beginQuizFlow({ mode, questions, title, subtitle, directionId = null, topicId = null }) {
   State.quizMode = mode;
@@ -2117,6 +2296,9 @@ function beginQuizFlow({ mode, questions, title, subtitle, directionId = null, t
   document.getElementById('quiz-flow-title').textContent = title;
   document.getElementById('quiz-flow-subtitle').textContent = subtitle;
   show('quiz-flow-view');
+  const flowEl = document.getElementById('quiz-flow-view');
+  flowEl?.classList.add('quiz-flow-enter');
+  setTimeout(() => flowEl?.classList.remove('quiz-flow-enter'), 520);
   trackEvent('quiz_start', { mode, total: State.quizQuestions.length });
   saveQuizDraft();
   renderCurrentQuestion();
@@ -2227,7 +2409,7 @@ function renderCurrentQuestion() {
   // 题目
   const area = document.getElementById('quiz-question-area');
   area.innerHTML = `
-    <div class="question-card">
+    <div class="question-card question-card-enter">
       <div class="question-text">${escHtml(q.question)}</div>
       <div class="options-list">
         ${(q.options || []).map((opt, i) => `
@@ -2302,6 +2484,7 @@ async function selectOption(idx) {
     selectedIndex: idx,
     isCorrect
   }));
+  showToast(isCorrect ? (getLang() === 'en' ? 'Correct — explanation unlocked.' : '回答正确，已显示解析。') : (getLang() === 'en' ? 'Not quite — check the explanation.' : '还不准确，先看一下解析。'), { tone: isCorrect ? 'success' : 'warning', duration: 1800 });
   saveQuizDraft();
 
   // 高亮选项
@@ -2413,6 +2596,7 @@ document.getElementById('btn-next-question').addEventListener('click', () => {
 document.getElementById('btn-skip-question').addEventListener('click', () => {
   if (State.answeredCurrent) return; // already answered, use next button instead
   State.quizAnswers.push(currentQuizAnswerPayload({ skipped: true }));
+  showToast(getLang() === 'en' ? 'Skipped. This question will not be scored.' : '已跳过，这题不会计入评分。', { tone: 'warning', duration: 1600 });
   trackEvent('quiz_skip', { mode: State.quizMode, index: State.quizIndex });
   State.quizIndex++;
   saveQuizDraft();

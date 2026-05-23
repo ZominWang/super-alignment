@@ -3001,3 +3001,360 @@ body {
   .intro-actions, .quiz-draft-card, .weekly-goal-card, .progress-rec-card { flex-direction: column; align-items: stretch; }
   .rec-context-toast { left: 16px; right: 16px; top: 64px; }
 }
+
+
+/* Interaction polish: clearer feedback, motion semantics, and accessible micro-interactions */
+:root {
+  --motion-fast: 140ms;
+  --motion-med: 260ms;
+  --motion-slow: 520ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-pop: cubic-bezier(.18,.9,.22,1.18);
+}
+button,
+[role="button"],
+.direction-card,
+.path-step,
+.search-result-item,
+.hm-dot {
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+.search-input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, white 18%);
+  outline-offset: 3px;
+}
+button:not(:disabled) {
+  transition-property: transform, box-shadow, background, border-color, color, opacity;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-out);
+}
+button:not(:disabled):active {
+  transform: translateY(1px) scale(.985);
+}
+button:disabled,
+button[aria-busy="true"] {
+  cursor: wait !important;
+  opacity: .72;
+}
+button.is-loading::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: kg-spin .72s linear infinite;
+}
+.btn-primary:hover,
+.cockpit-primary:hover,
+.intro-primary:hover {
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 30%, transparent);
+  transform: translateY(-1px);
+}
+.btn-secondary:hover,
+.cockpit-secondary:hover,
+.intro-secondary:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  transform: translateY(-1px);
+}
+
+.app-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(360px, calc(100vw - 44px));
+  max-width: min(460px, calc(100vw - 44px));
+  padding: 12px 13px;
+  transform: translateY(12px) scale(.98);
+  pointer-events: none;
+}
+.app-toast.show { pointer-events: auto; transform: translateY(0) scale(1); }
+.app-toast-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent);
+  flex-shrink: 0;
+}
+.app-toast-message { flex: 1; line-height: 1.45; }
+.app-toast-action {
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.app-toast-success { border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+.app-toast-success .app-toast-dot { background: var(--success); box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 14%, transparent); }
+.app-toast-warning { border-color: color-mix(in srgb, var(--warning) 44%, transparent); }
+.app-toast-warning .app-toast-dot { background: var(--warning); box-shadow: 0 0 0 5px color-mix(in srgb, var(--warning) 16%, transparent); }
+.app-toast-error { border-color: color-mix(in srgb, var(--danger) 44%, transparent); }
+.app-toast-error .app-toast-dot { background: var(--danger); box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 16%, transparent); }
+
+.node-focus-pulse.show {
+  animation: kg-focus-pulse 1.8s ease-out infinite;
+}
+.node-action-fan.show:not(.is-ready)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 142px;
+  height: 142px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.78);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 11%, transparent), transparent 66%);
+  animation: kg-fan-bloom .46s var(--ease-out) both;
+  pointer-events: none;
+}
+.node-action-fan.show .fan-action {
+  animation: kg-fan-pop .42s var(--ease-pop) both;
+  animation-delay: calc(var(--i) * 36ms);
+}
+.node-action-fan.is-ready .fan-action:first-child em,
+.node-action-fan.is-ready .fan-action:focus-visible em {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.node-g.status-updated .node-circle,
+.node-g.status-updated.node-topic-global circle:last-child {
+  animation: kg-status-flash .9s ease-out both;
+}
+.graph-canvas-wrap.graph-focus-mode::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), transparent 0 108px, rgba(0,0,0,.20) 230px, rgba(0,0,0,.30));
+  opacity: .62;
+  transition: opacity var(--motion-med) ease;
+}
+[data-theme="light"] .graph-canvas-wrap.graph-focus-mode::after {
+  background: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), transparent 0 108px, rgba(255,255,255,.32) 230px, rgba(255,255,255,.48));
+}
+
+.modal-overlay:not(.hidden) {
+  animation: kg-fade-in var(--motion-med) ease both;
+}
+.export-preview-modal.modal-enter,
+.course-modal:not(.hidden),
+.search-results-panel:not(.hidden),
+.node-float-card:not(.hidden) {
+  animation: kg-panel-in var(--motion-med) var(--ease-out) both;
+}
+.quiz-flow-enter .quiz-flow,
+.question-card-enter {
+  animation: kg-panel-in var(--motion-med) var(--ease-out) both;
+}
+.option-btn {
+  position: relative;
+  overflow: hidden;
+}
+.option-btn:not(.correct):not(.wrong):hover {
+  transform: translateX(2px);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+}
+.option-btn.correct,
+.option-btn.wrong {
+  animation: kg-answer-pop 260ms var(--ease-pop) both;
+}
+.option-btn.correct::after,
+.option-btn.wrong::after {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 800;
+}
+.option-btn.correct::after { content: '✓'; color: var(--success); }
+.option-btn.wrong::after { content: '↯'; color: var(--danger); }
+.quiz-progress-fill {
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.quiz-draft-card:not(.hidden),
+.weekly-goal-card,
+.progress-rec-card {
+  animation: kg-panel-in var(--motion-med) var(--ease-out) both;
+}
+.search-result-item:hover,
+.direction-card:hover,
+.progress-rec-card:hover,
+.weekly-goal-options button:hover,
+.hm-dot:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes kg-spin { to { transform: rotate(360deg); } }
+@keyframes kg-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kg-panel-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes kg-fan-bloom {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.55); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes kg-fan-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+  68% { opacity: 1; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(1.12); }
+  100% { opacity: 1; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(1); }
+}
+@keyframes kg-focus-pulse {
+  0% { opacity: .40; transform: translate(-50%, -50%) scale(.78); }
+  55% { opacity: .12; transform: translate(-50%, -50%) scale(1.36); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.58); }
+}
+@keyframes kg-status-flash {
+  0% { filter: drop-shadow(0 0 0 color-mix(in srgb, var(--success) 0%, transparent)); }
+  38% { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--success) 80%, transparent)); }
+  100% { filter: none; }
+}
+@keyframes kg-answer-pop {
+  0% { transform: scale(.992); }
+  65% { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+
+/* Export modal must own focus visually; keep actions visible on short screens. */
+body.export-modal-open .top-export-popover {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-6px) scale(.98) !important;
+}
+.export-preview-modal {
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+.export-preview-modal.hidden { display: none; }
+.export-preview-body {
+  overflow: auto;
+}
+.export-preview-actions {
+  flex-shrink: 0;
+}
+
+/* Centered modal animation must preserve translate(-50%, -50%). */
+.export-preview-modal.modal-enter {
+  animation: kg-modal-in var(--motion-med) var(--ease-out) both;
+}
+@keyframes kg-modal-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+
+/* Parent context is kept visible while drilling into a direction, so the map never loses hierarchy. */
+.link-parent-context {
+  stroke: color-mix(in srgb, var(--accent) 42%, var(--border));
+  stroke-width: 1.3;
+  stroke-dasharray: 2, 6;
+  stroke-linecap: round;
+  stroke-opacity: .78;
+}
+.node-label-parent,
+.node-label-parent-name {
+  fill: color-mix(in srgb, var(--text) 88%, var(--accent));
+}
+.node-label-parent-name {
+  font-size: 10px;
+  font-weight: 600;
+}
+.node-g[data-id^="parent-"] .node-circle {
+  stroke-dasharray: 4, 4;
+  cursor: zoom-out;
+}
+.node-g[data-id^="parent-"]:hover .node-circle {
+  fill-opacity: .28;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 42%, transparent));
+}
+.graph-canvas-wrap.graph-focus-mode .link-parent-context {
+  stroke-opacity: .16 !important;
+  opacity: .36 !important;
+}
+.graph-canvas-wrap.graph-focus-mode .link-parent-context.is-focus-link {
+  stroke: var(--accent);
+  stroke-opacity: .72 !important;
+  opacity: 1 !important;
+}
+
+
+/* Scalable graph density strategy: overview shows structure first, details on demand. */
+.graph-scale-hint {
+  position: absolute;
+  right: 16px;
+  top: 60px;
+  z-index: 24;
+  width: min(310px, calc(100% - 32px));
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 16px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg2) 84%, transparent);
+  box-shadow: 0 18px 44px rgba(0,0,0,.22);
+  backdrop-filter: blur(18px) saturate(1.2);
+  opacity: 0;
+  transform: translateY(-8px) scale(.98);
+  pointer-events: none;
+  transition: opacity var(--motion-med) ease, transform var(--motion-med) var(--ease-out);
+}
+.graph-scale-hint.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.graph-scale-hint strong,
+.graph-scale-hint span {
+  display: block;
+}
+.graph-scale-hint strong {
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.graph-scale-hint span {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.global-density-mode .g-topics .node-topic-global:not(.is-selected) circle:last-child {
+  opacity: .74;
+}
+.global-density-mode .g-topics .node-topic-global:not(.is-selected):hover circle:last-child {
+  opacity: 1;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 36%, transparent));
+}
+.global-density-mode .node-label-topic.is-core-label {
+  font-weight: 650;
+  opacity: .9;
+}
+.node-count-badge {
+  fill: color-mix(in srgb, var(--accent) 86%, white 8%);
+  font-size: 8px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--bg) 86%, transparent);
+  stroke-width: 4px;
+}
+.node-label-topic-detail {
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--bg) 82%, transparent);
+  stroke-width: 3px;
+}
