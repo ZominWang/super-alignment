@@ -46,3 +46,12 @@ tags: ["math", "linear-algebra", "matrix", "vectors"]
 - D. SVD 不需要迭代计算
 
 **解析**: EVD 只能分解方阵，而 SVD 可以分解任意 m×n 矩阵：A = UΣV^T。在 LLM 的 LoRA 中，正是利用 SVD 将大权重矩阵分解为两个低秩矩阵的乘积来实现参数高效微调。
+
+## 参考资料
+
+### 视频（B站/YouTube）
+- **[Essence of Linear Algebra]** — 3Blue1Brown（Grant Sanderson）。以几何直觉为核心讲解向量、矩阵变换、特征值的系列视频，是线性代数入门最佳视觉化资源。https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
+
+### 博文/教程
+- **[Linear Algebra for Machine Learning]** — fast.ai（Rachel Thomas）。专为 ML 从业者定制的线性代数速成课，聚焦矩阵运算在深度学习中的实际应用。https://www.fast.ai/posts/2017-07-17-num-lin-alg.html
+- **[Introduction to Linear Algebra（第5版）]** — Gilbert Strang，MIT 出版社。全球最广泛使用的线性代数教材，Strang 教授的 MIT OCW 公开课视频与教材配套，是系统学习线性代数的权威资源。https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/

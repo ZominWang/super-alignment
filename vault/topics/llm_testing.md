@@ -46,3 +46,10 @@ LLM 应用测试面临独特挑战：输出是概率性的，无法用精确断�
 - D. 测试 LLM 在大并发下的稳定性
 
 **解析**: 对抗性测试类型：(1) 安全红队（越狱尝试、有害内容生成）；(2) 提示注入（试图覆盖系统提示）；(3) 边界情况（极长输入、多语言混合、特殊字符）；(4) 格式破坏（期望 JSON 输出但输入会诱导 LLM 不遵循格式）。在发布前系统性进行对抗测试是负责任 AI 工程的基础。
+
+## 参考资料
+
+### 博文/教程
+- **[Promptfoo Documentation]** — Promptfoo 官方文档。开源 LLM 测试工具，支持多提示版本并行评测、LLM Judge 断言、CI/CD 集成，是提示词回归测试的实用框架。https://promptfoo.dev/docs/intro
+- **[Testing LLM Applications]** — Hamel Husain 博客。系统介绍行为测试、快照测试、对抗测试在 LLM 应用中的实践方法，并给出不同场景的测试策略选择建议。https://hamel.dev/blog/posts/llm-testing/
+- **[How to Evaluate, Compare, and Optimize LLM Systems]** — LangChain 博客。介绍如何构建评测数据集、选择合适指标、并在 CI/CD 中自动化 LLM 回归测试的完整工作流。https://blog.langchain.dev/

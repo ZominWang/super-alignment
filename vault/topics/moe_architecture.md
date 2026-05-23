@@ -46,3 +46,10 @@ tags: ["llm", "moe", "mixture-of-experts", "sparse-activation", "routing", "gpt-
 - D. 负责处理特定语言（如中文）的专业化专家
 
 **解析**: DeepSeekMoE 将专家分为两类：共享专家（每次都激活，处理通用知识）和路由专家（按需激活，处理专业知识）。共享专家减少了路由专家之间的知识冗余，让路由专家可以更专注于特定能力。这是 DeepSeek 相对于 Mixtral 等简单 MoE 的重要创新，配合细粒度专家分割（更多但更小的专家）实现更高的专业化程度。
+
+## 参考资料
+
+### 论文
+- **[Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer]**(Shazeer et al., 2017) — 提出稀疏门控 MoE 层，在 LSTM 翻译模型中验证了 137B 参数的 MoE 可行性。https://arxiv.org/abs/1701.06538
+- **[Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity]**(Fedus et al., 2022) — 简化 MoE 路由为单专家选择（Switch），展示了万亿参数模型的训练可行性。https://arxiv.org/abs/2101.03961
+- **[DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model]**(DeepSeek-AI, 2024) — 提出 DeepSeekMoE 架构，共享专家+路由专家的设计在性能和成本间取得突破。https://arxiv.org/abs/2405.04434

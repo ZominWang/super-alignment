@@ -46,3 +46,14 @@ AI工作流自动化是指将 AI 能力嵌入到日常业务流程中，让重�
 - D. 把所有竞品网站的完整内容每次都全部发给LLM
 
 **解析**: 最佳实践是"数据采集 + AI分析"两段式：①工作流工具（n8n/Make）负责定时抓取最新内容（避免LLM知识截止问题）；②把整理好的数据作为上下文发给LLM（避免LLM自行搜索的不稳定性）；③LLM只做它擅长的：分析、总结、结构化输出。把全部原始内容发给LLM会撑爆上下文且成本高；只靠LLM记忆则信息过时；仅靠browsing功能则稳定性差且难以定制输出格式。
+
+## 参考资料
+
+### 博文/教程
+- **[n8n Documentation]** — n8n.io。开源工作流自动化平台的官方文档，涵盖 LLM 节点、HTTP Request、Webhook 触发器等与 AI 集成的核心功能。https://docs.n8n.io
+- **[LangGraph Documentation]** — LangChain。介绍 LangGraph 的状态机工作流编排范式，适合构建有状态、多步骤的 AI 自动化流程，是代码优先的工作流方案。https://langchain-ai.github.io/langgraph/
+- **[The Rise of Agentic AI Workflows]** — Andrew Ng（AI Fund）。Andrew Ng 关于 AI 工作流（Agentic Workflow）重要性的深度文章，强调迭代式、多 Agent 协作的工作流模式将成为 AI 落地的主流范式。https://www.deeplearning.ai/the-batch/how-agents-can-improve-llm-performance/
+
+### 课程
+- **[AI Agents in LangGraph]** — Tavily & Harrison Chase / DeepLearning.AI（免费）。通过 LangGraph 构建有状态、可中断、可持久化的 AI 自动化工作流，覆盖条件分支、并行节点与人工审批节点，是代码优先工作流方案的核心课程。https://www.deeplearning.ai/short-courses/ai-agents-in-langgraph/
+- **[n8n AI 节点实战教程]** — n8n 官方文档。无代码/低代码工作流与 LLM 节点的集成指南，适合需要快速搭建自动化流程而不侧重编程的实践者。https://docs.n8n.io/advanced-ai/

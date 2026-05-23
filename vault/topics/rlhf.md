@@ -46,3 +46,10 @@ RLHF（基于人类反馈的强化学习）是使 LLM 遵循人类价值观的�
 - D. DPO 的训练速度提升了10倍
 
 **解析**: RLHF 需要训练奖励模型、再运行 PPO 强化学习，流程复杂，内存消耗大（需同时维护策略模型和参考模型）。DPO 将 RLHF 的目标重新参数化为分类损失，直接用（提示，好回答，坏回答）三元组训练 LLM，理论等价但实现简单得多，是目前学术界最主流的对齐方法。
+
+## 参考资料
+
+### 论文
+- **[Deep Reinforcement Learning from Human Preferences]**(Christiano et al., 2017) — 首次将人类偏好反馈用于强化学习训练，RLHF 的奠基之作。https://arxiv.org/abs/1706.03741
+- **[Training Language Models to Follow Instructions with Human Feedback]**(Ouyang et al., 2022) — InstructGPT 论文，完整描述了 RLHF 三步流程在 LLM 对齐中的首次大规模应用。https://arxiv.org/abs/2203.02155
+- **[Training a Helpful and Harmless Assistant from Human Feedback]**(Bai et al., 2022) — Anthropic HH-RLHF，在 RLHF 框架下同时优化有用性和无害性的实践。https://arxiv.org/abs/2204.05862

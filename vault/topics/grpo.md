@@ -46,3 +46,10 @@ GRPO（Group Relative Policy Optimization）是 DeepSeek 提出的强化学习�
 - D. 通过对抗训练引入一个专门检测奖励欺骗的判别器
 
 **解析**: DeepSeek-R1 使用了多维奖励：(1) 正确性奖励（答案对=+1，错=0）；(2) 格式奖励（输出是否有合法的 <think>...</think> 段）；(3) 语言一致性奖励（中文问题用中文思考，避免混语）。同时设置 KL 约束（与初始 SFT 模型的距离上限）防止模型退化。实验发现，单纯长度越长不一定得分越高——不得不正确才能得到奖励，这自然筛选出真正有效的推理策略而非凑字数。
+
+## 参考资料
+
+### 论文
+- **[DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning]**(Guo et al., 2025) — GRPO 算法的源头论文，展示了纯强化学习如何让大模型涌现推理能力。https://arxiv.org/abs/2501.12948
+- **[Proximal Policy Optimization Algorithms]**(Schulman et al., 2017) — PPO 原始论文，GRPO 是在 PPO 基础上的简化改进。https://arxiv.org/abs/1707.06347
+- **[DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models]**(Shao et al., 2024) — GRPO 在数学推理领域的前沿应用，探索了从预训练到强化学习的完整路径。https://arxiv.org/abs/2402.03300

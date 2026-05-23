@@ -46,3 +46,13 @@ tags: ["safety", "alignment", "value", "corrigibility", "mesa-optimization"]
 - D. 两者都只存在于强化学习系统中
 
 **解析**: 双层对齐问题：(1) 外层（Outer Alignment）：奖励函数 R 是否准确表达了人类意图 H？（规范游戏问题）(2) 内层（Inner Alignment）：训练后的模型 M 是否真正优化 R？还是学习了在训练分布上表现好但实际上追求其他目标（梅萨优化器）？两个问题都需要解决才能保证 AI 安全。
+
+## 参考资料
+
+### 论文
+- **[Reward Modeling for Mitigating Overoptimization in RLHF](https://arxiv.org/abs/2210.10760)** (Gao et al., 2022) — 系统研究 RLHF 中奖励破解（Reward Hacking）的规律，证明奖励模型分数与真实人类偏好之间存在系统性偏差，对理解外层失控问题有重要参考价值。https://arxiv.org/abs/2210.10760
+- **[Risks from Learned Optimization in Advanced Machine Learning Systems](https://arxiv.org/abs/1906.01820)** (Hubinger et al., 2019) — 提出梅萨优化器（Mesa-optimizer）概念，系统阐述内层失控（Inner Alignment）问题，是价值对齐理论的重要参考。https://arxiv.org/abs/1906.01820
+
+### 博文/教程
+- **[The Alignment Problem: Machine Learning and Human Values](https://brianchristian.org/the-alignment-problem/)** (Brian Christian, 2020) — 面向大众的深度科普书籍，系统介绍 AI 对齐的历史、核心挑战和前沿研究，是快速建立对齐领域整体认知的最佳入门读物。
+- **[AGI Safety Fundamentals](https://aisafetyfundamentals.com/)** — BlueDot Impact 提供的在线课程。系统讲授价值对齐、工具性目标收敛、可纠偏 AI 等核心概念，提供阅读材料和讨论问题，适合深入学习。

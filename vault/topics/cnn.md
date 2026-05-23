@@ -46,3 +46,10 @@ tags: ["deep-learning", "cnn", "convolution", "computer-vision"]
 - D. GAP 输出更高维的特征
 
 **解析**: 若最后一层特征图是 7×7×512，全连接分类头需要 7×7×512×1000 ≈ 25M 参数。GAP 将每个通道的特征图平均为一个值，得到 512 维向量，再接全连接层，参数量仅 512×1000 ≈ 512K，且支持任意输入尺寸。
+
+## 参考资料
+
+### 论文
+- **[Gradient-Based Learning Applied to Document Recognition]** (Yann LeCun et al., 1998) — 提出 LeNet-5，奠定卷积神经网络的基础架构（卷积层+池化层+全连接层），是 CNN 的奠基论文。http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf
+- **[ImageNet Classification with Deep Convolutional Neural Networks]** (Alex Krizhevsky, Ilya Sutskever & Geoffrey Hinton, 2012) — AlexNet 论文，在 ImageNet 上以大幅优势夺冠，引爆深度学习革命，引入了 ReLU、Dropout 和 GPU 训练等关键技术。https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf
+- **[Deep Residual Learning for Image Recognition]** (Kaiming He et al., 2015) — ResNet 论文，提出残差连接，使训练 100+ 层网络成为可能，残差连接思想被 Transformer 等架构广泛采用。https://arxiv.org/abs/1512.03385

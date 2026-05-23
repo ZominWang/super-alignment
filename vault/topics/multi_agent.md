@@ -46,3 +46,13 @@ tags: ["agent", "multi-agent", "autogen", "crew-ai", "orchestration"]
 - D. Agent 之间的通信延迟导致结果不同步
 
 **解析**: 在长任务链中（Agent A 的输出 → Agent B 的输入 → Agent C 的输入），若 A 产生轻微错误，B 基于错误假设继续推进，C 进一步放大，最终结果可能与正确答案大相径庭。缓解策略：关键步骤设置验证 Agent（Critic）、人机循环检查点、要求每个 Agent 说明置信度和假设。
+
+## 参考资料
+
+### 论文
+- **[Generative Agents: Interactive Simulacra of Human Behavior]** (Park et al., 2023) —— 提出生成式 Agent 架构，模拟记忆、反思与规划的人类行为。https://arxiv.org/abs/2304.03442
+- **[CAMEL: Communicative Agents for "Mind" Exploration of Large Language Model Society]** (Li et al., 2023) —— 提出角色扮演式多 Agent 通信框架，探索 LLM 社会的涌现行为。https://arxiv.org/abs/2303.17760
+
+### 博文/教程
+- **[AutoGen]** —— 微软开源的多 Agent 对话框架，支持灵活定义 Agent 角色与交互模式。https://github.com/microsoft/autogen
+- **[CrewAI]** —— 角色驱动的多 Agent 编排框架，通过任务委派实现复杂工作流自动化。https://github.com/crewAIInc/crewAI

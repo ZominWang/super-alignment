@@ -46,3 +46,13 @@ tags: ["safety", "interpretability", "mechanistic", "attention", "probing"]
 - D. 提供统计上的黑盒解释
 
 **解析**: 传统可解释性是黑盒方法（输入输出关系）。机械可解释性（Anthropic、EleutherAI 等的研究）：逆向工程模型内部，找到实现具体功能的注意力头和 MLP 电路（如"直接对象归纳"电路、"模糊匹配"电路）。目标是完整理解模型如何实现推理，为改进对齐提供理论基础。发现了"超位置（Superposition）"现象——模型将多个概念压缩编码在同一神经元中。
+
+## 参考资料
+
+### 论文
+- **["Why Should I Trust You?": Explaining the Predictions of Any Classifier](https://arxiv.org/abs/1602.04938)** (Ribeiro et al., 2016) — 提出 LIME（局部可解释模型无关解释），通过局部线性近似解释任意分类器的单次预测，是可解释 AI 的奠基性论文之一。https://arxiv.org/abs/1602.04938
+- **[A Unified Approach to Interpreting Model Predictions](https://arxiv.org/abs/1705.07874)** (Lundberg & Lee, 2017) — 提出 SHAP（Shapley 值），将博弈论 Shapley 值引入特征归因，是目前最广泛使用的可解释性工具理论基础。https://arxiv.org/abs/1705.07874
+- **[Toy Models of Superposition](https://arxiv.org/abs/2209.11895)** (Elhage et al., Anthropic, 2022) — 系统研究神经网络的"超位置"现象，是机械可解释性领域的重要实证研究。https://arxiv.org/abs/2209.11895
+
+### 博文/教程
+- **[Captum: Model Interpretability for PyTorch](https://captum.ai/)** — PyTorch 官方可解释性库文档，集成 Integrated Gradients、SHAP、LIME 等多种归因方法，提供实用代码示例。

@@ -46,3 +46,12 @@ tags: ["deep-learning", "rnn", "lstm", "sequence", "nlp"]
 - D. 解码器无法访问原始输入，需要复制机制解决
 
 **解析**: 传统 Seq2Seq 要求编码器将整个句子压缩为单个向量（上下文向量），长句中早期词的信息严重衰减。Bahdanau 注意力机制让解码器在每一步动态关注编码器的所有隐状态，直接"对齐"相关词汇，显著提升翻译质量。这是 Transformer 注意力机制的直接前身。
+
+## 参考资料
+
+### 论文
+- **[Long Short-Term Memory]** (Sepp Hochreiter & Jürgen Schmidhuber, 1997) — 提出 LSTM 架构，通过门控机制解决 RNN 的长期依赖问题，是序列建模领域最重要的论文之一。https://www.bioinf.jku.at/publications/older/2604.pdf
+- **[Learning Phrase Representations using RNN Encoder–Decoder for Statistical Machine Translation]** (Kyunghyun Cho et al., 2014) — 提出 GRU（门控循环单元），简化了 LSTM 的门控结构，并与 Seq2Seq 框架共同推动了神经机器翻译的发展。https://arxiv.org/abs/1406.1078
+
+### 博文/教程
+- **[Understanding LSTM Networks]** — Christopher Olah（colah's blog）。最广泛引用的 LSTM 可视化教程，用直观图示清晰解释了细胞状态、遗忘门、输入门和输出门的工作原理。http://colah.github.io/posts/2015-08-Understanding-LSTMs/

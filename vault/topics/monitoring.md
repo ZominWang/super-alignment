@@ -46,3 +46,10 @@ LLM 应用的可观测性需要超越传统软件监控，增加 LLM 特有的�
 - D. 离线评估在生产环境中运行
 
 **解析**: 离线评估（定期在 benchmark 数据集上测试）无法捕捉真实用户分布和新出现的问题模式。在线评估（Shadow mode）：对每条生产请求自动触发 LLM Judge 打质量分，聚合后生成实时仪表盘，可以立即检测到模型退化或特定类型的失败。代价是每次评估多一次 LLM 调用。
+
+## 参考资料
+
+### 博文/教程
+- **[Evidently AI Documentation]** — Evidently AI 官方文档。开源 ML 监控框架，提供数据漂移检测、模型性能监控与报告生成功能，支持集成 Prometheus/Grafana 实现生产级监控仪表盘。https://docs.evidentlyai.com/
+- **[Langfuse Documentation]** — Langfuse 官方文档。开源 LLM 可观测性平台，提供 Trace/Span 可视化、Token 成本追踪、质量评分与数据集管理，是构建 LLM 生产监控的实用工具。https://langfuse.com/docs
+- **[ML Observability: The Key to Production ML Success]** — Arize AI 博客。介绍 ML 系统从离线评估到在线监控的全链路可观测性实践，涵盖数据漂移、模型性能退化与幻觉检测的监控策略。https://arize.com/blog/

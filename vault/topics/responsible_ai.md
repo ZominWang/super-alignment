@@ -46,3 +46,13 @@ tags: ["governance", "responsible-ai", "model-card", "ethics", "transparency"]
 - D. 技术专家的判断比受影响用户的意见更可靠
 
 **解析**: 典型案例：面向刑事司法的 AI 风险评估工具，在仅由技术团队设计时出现了对黑人被告的系统性歧视（ProPublica, 2016）。若在设计阶段纳入受影响社区、社会学家、法律专家，这些问题可能被提前发现。共同设计不是"让用户选颜色"，而是让受影响者参与界定问题、评估方案、监督部署。
+
+## 参考资料
+
+### 论文
+- **[Model Cards for Model Reporting](https://arxiv.org/abs/1810.03993)** (Mitchell et al., Google, 2019) — 提出模型卡片（Model Card）标准，规范了模型文档化的内容和格式，是负责任 AI 文档实践的奠基性论文。https://arxiv.org/abs/1810.03993
+- **[Datasheets for Datasets](https://arxiv.org/abs/1803.09010)** (Gebru et al., 2021) — 类比电子产品规格表，提出为训练数据集建立标准化说明书，帮助使用者了解数据的来源、构成和潜在风险。https://arxiv.org/abs/1803.09010
+
+### 博文/教程
+- **[Microsoft Responsible AI Toolbox](https://responsibleaitoolbox.ai/)** — Microsoft 官方开源工具集。集成错误分析、可解释性、公平性评估、因果推断等多个模块，是企业落地负责任 AI 实践的一站式工程工具。
+- **[Google's Responsible AI Practices](https://ai.google/responsibility/responsible-ai-practices/)** — Google AI 官方页面。涵盖公平性、可解释性、隐私和安全等维度的实践指南，包含具体工具（What-If Tool、Language Interpretability Tool）的介绍。

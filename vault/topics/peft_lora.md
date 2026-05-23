@@ -46,3 +46,10 @@ tags: ["llm", "lora", "peft", "fine-tuning", "adapter"]
 - D. r 应该始终设为权重矩阵维度的一半
 
 **解析**: r=4~16 适合简单任务（如格式调整、风格迁移），r=64~256 适合复杂任务（如代码生成、多步推理）。研究表明大多数权重更新的有效秩较低，LoRA 的假设是合理的。实践中先用 r=16 作为基准，再根据需要调整。
+
+## 参考资料
+
+### 论文
+- **[LoRA: Low-Rank Adaptation of Large Language Models]**(Hu et al., 2022) — 提出通过低秩分解实现参数高效微调，将可训练参数量减少 99% 以上。https://arxiv.org/abs/2106.09685
+- **[QLoRA: Efficient Finetuning of Quantized Language Models]**(Dettmers et al., 2023) — 在 4-bit 量化模型上通过 LoRA 微调，实现单卡微调 65B 模型。https://arxiv.org/abs/2305.14314
+- **[Scaling Down to Scale Up: A Guide to Parameter-Efficient Fine-Tuning]**(Lialin et al., 2023) — PEFT 方法的全面综述，涵盖 Adapter、Prefix-Tuning、LoRA 等方法。https://arxiv.org/abs/2303.15647

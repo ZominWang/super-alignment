@@ -46,3 +46,18 @@ tags: ["rag", "reranking", "query-rewriting", "advanced-rag", "HyDE"]
 - D. 解决 LLM 的幻觉问题
 
 **解析**: 标准 RAG 只在回答开始前检索一次。对于需要多步推理的问题（"A 的 CEO 是谁，他之前在哪家公司工作？"），一次检索无法获取所有信息。FLARE 在生成过程中监测模型的不确定性（低置信度 token），遇到不确定点时暂停生成，检索相关信息后继续，实现多轮迭代检索。
+
+## 参考资料
+
+### 论文
+- **[Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)]** (Gao et al., 2022) — 提出假设文档嵌入，用 LLM 生成假设答案来弥合查询与文档的语义鸿沟，提升零样本检索效果。https://arxiv.org/abs/2212.10496
+- **[Active Retrieval Augmented Generation (FLARE)]** (Jiang et al., 2023) — 提出前向主动检索机制，生成过程中按需动态触发多轮检索，应对多跳推理问题。https://arxiv.org/abs/2305.06983
+- **[RAG-Fusion: A New Take on Retrieval-Augmented Generation]** (Raudaschl, 2023) — 提出多查询扩展与倒数排名融合（RRF）策略，提升检索多样性和准确率。https://arxiv.org/abs/2402.03367
+
+### 博文/教程
+- **[Improving RAG: Re-ranking]** — Cohere 官方博客。介绍 Cross-Encoder Reranker 在 RAG 二阶段检索中的工程实践。https://cohere.com/blog/rerank
+
+### 课程
+- **[Building and Evaluating Advanced RAG]** — Jerry Liu (LlamaIndex) / DeepLearning.AI（免费）。覆盖句子窗口检索、自动合并检索与 RAGAs 评估框架，从检索优化到质量评估的完整进阶路径。https://www.deeplearning.ai/short-courses/building-evaluating-advanced-rag/
+- **[Advanced Retrieval for AI with Chroma]** — Anton Troynikov / DeepLearning.AI（免费）。深入讲解查询扩展、交叉编码器 Reranker 与嵌入适配器训练，是提升检索精度的核心实操课程。https://www.deeplearning.ai/short-courses/advanced-retrieval-for-ai/
+- **[HuggingFace NLP Course — 检索增强与 RAGAs]** — Hugging Face（免费）。讲解 BM25 混合检索、Dense Passage Retrieval 微调与 RAG 系统端到端评估，含在 HuggingFace 生态内完整运行的 notebook。https://huggingface.co/learn/nlp-course/

@@ -46,3 +46,10 @@ tags: ["llm", "pretraining", "bert", "gpt", "language-model"]
 - D. 区分真实文本和生成文本，生成时欺骗判别器
 
 **解析**: GPT 的预训练目标是 P(x_t | x_1,...,x_{t-1})，即用前 t-1 个词预测第 t 个词，与生成时的解码过程完全一致（自回归生成）。这使得 GPT 在预训练完成后无需额外微调即可进行文本生成，是 ChatGPT 等对话系统的基础。
+
+## 参考资料
+
+### 论文
+- **[Deep contextualized word representations (ELMo)]** (Matthew Peters et al., 2018) — 提出 ELMo，用双向 LSTM 生成上下文相关的词表示，是预训练语言模型范式的重要先驱。https://arxiv.org/abs/1802.05365
+- **[BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding]** (Jacob Devlin et al., 2019) — 提出 BERT，通过掩码语言模型和双向 Transformer 预训练，在 11 项 NLP 任务上取得 SOTA，引发了"预训练+微调"范式的全面普及。https://arxiv.org/abs/1810.04805
+- **[Improving Language Understanding by Generative Pre-Training (GPT-1)]** (Alec Radford et al., 2018) — OpenAI 提出 GPT，以因果语言模型预训练 Transformer，奠定了 GPT 系列生成模型的基础架构。https://openai.com/index/language-unsupervised/

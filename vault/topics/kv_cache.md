@@ -46,3 +46,10 @@ KV Cache 是 Transformer 自回归推理的核心优化，通过缓存历史 tok
 - D. 连续批处理消除了 KV Cache 内存限制
 
 **解析**: 静态批处理等待一批请求全部完成再处理下一批，短请求完成后 GPU 空闲等待长请求（气泡）。连续批处理（Iteration-level scheduling）在每个迭代步检查已完成的请求，立即将等待队列中的新请求加入 batch，GPU 利用率接近 100%，是生产部署的标准策略。
+
+## 参考资料
+
+### 论文
+- **[Efficiently Scaling Transformer Inference]**(Pope et al., 2023) — 系统分析 Transformer 推理瓶颈，提出 Multi-Query Attention 和分片推理等优化策略。https://arxiv.org/abs/2211.05102
+- **[Efficient Memory Management for Large Language Model Serving with PagedAttention]**(Kwon et al., 2023) — vLLM 论文，提出 PagedAttention 解决 KV Cache 内存碎片问题。https://arxiv.org/abs/2309.06180
+- **[Efficient Streaming Language Models with Attention Sinks]**(Xiao et al., 2024) — 发现注意力汇（Attention Sink）现象，实现无限长度流式推理。https://arxiv.org/abs/2309.17453

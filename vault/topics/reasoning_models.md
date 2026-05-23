@@ -46,3 +46,10 @@ tags: ["llm", "reasoning", "o1", "deepseek-r1", "cot-training", "prm", "orm", "s
 - D. 引入了专门的"推理专家"模块，与其他 FFN 专家并行工作
 
 **解析**: DeepSeek-R1 的关键发现：当使用 GRPO（一种无需价值模型的在线 RL 算法）以正确性为奖励训练时，模型会"自我发现"有效的推理策略——包括在中间插入验证步骤、发现错误后回溯、尝试多种解法。这种涌现行为无需人工设计推理格式，表明推理能力可以从纯结果信号中自发出现。这一发现改变了业界对推理模型训练方式的认知。
+
+## 参考资料
+
+### 论文
+- **[Chain-of-Thought Prompting Elicits Reasoning in Large Language Models]** (Jason Wei et al., 2022) — 系统证明思维链提示能显著提升 LLM 在数学、推理等复杂任务上的表现，是推理模型研究的重要基础。https://arxiv.org/abs/2201.11903
+- **[DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning]** (DeepSeek-AI, 2025) — 提出通过 GRPO 强化学习让模型自发学习推理策略，无需人工标注思维链，在数学和代码任务上达到 o1 级别性能。https://arxiv.org/abs/2501.12948
+- **[Let's Verify Step by Step]** (Hunter Lightman et al., 2023) — OpenAI 的过程奖励模型（PRM）研究，系统比较了 PRM 与 ORM 在数学推理上的效果，证明过程监督显著优于结果监督。https://arxiv.org/abs/2305.20050

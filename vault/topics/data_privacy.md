@@ -46,3 +46,12 @@ LLM 的数据隐私涉及训练数据隐私（模型可能记忆并泄露训练�
 - D. 只需删除数据库中的用户记录即可满足要求
 
 **解析**: 传统软件删除数据库记录即可。LLM 困难：个人信息已被"消化"进模型权重，无法直接删除。选项：(1) 重新训练不含该数据的模型（极其昂贵）；(2) 机器遗忘算法（通过梯度更新删除特定知识，但效果不稳定）；(3) 从根本上不用含 PII 的数据训练（数据治理最佳实践）。这是 LLM 合规的最难挑战之一。
+
+## 参考资料
+
+### 论文
+- **[The Algorithmic Foundations of Differential Privacy](https://www.cis.upenn.edu/~aaronroth/privacybook.pdf)** (Dwork & Roth, 2014) — 差分隐私理论的权威教材，系统定义了 (ε, δ)-DP 及核心机制（高斯、Laplace 噪声），是理解差分隐私数学基础的必读文献。
+- **[Quantifying Memorization Across Neural Language Models](https://arxiv.org/abs/2202.07646)** (Carlini et al., 2022) — 系统量化了不同规模 LLM 中的训练数据记忆程度，证明模型越大记忆率越高，对数据隐私合规研究有直接指导意义。https://arxiv.org/abs/2202.07646
+
+### 博文/教程
+- **[GDPR Official Text](https://gdpr-info.eu/)** — gdpr-info.eu 整理的 GDPR 全文及逐条注释，包含"被遗忘权"（第17条）、自动化决策（第22条）等与 AI 最相关的条款，提供英文注释版本。

@@ -46,3 +46,10 @@ LangChain 是最主流的 LLM 应用开发框架，提供了链（Chain）、代
 - D. 替代向量数据库存储嵌入
 
 **解析**: LLM 应用调试困难——一个用户请求可能触发 10+ 次 LLM 调用，中间结果难以追踪。LangSmith 自动捕获完整执行树：每次 LLM 调用的 prompt、response、延迟、token 数；工具调用的输入输出；运行成本。通过 trace 可以快速定位哪一步导致了错误，也可以建立评估数据集进行系统性测试。
+
+## 参考资料
+
+### 博文/教程
+- **[LangChain 官方文档]** — LangChain。包含 LCEL、Chain、Agent、Memory、Retrieval 等核心模块的完整教程与 API 参考。https://python.langchain.com/docs/
+- **[LangSmith Documentation]** — LangChain。LLM 应用可观测性平台的使用指南，涵盖 trace 调试、评估数据集构建与 CI/CD 集成。https://docs.smith.langchain.com
+- **[LangChain Expression Language (LCEL) Guide]** — LangChain 官方博客。深入讲解 LCEL 声明式管道的设计理念、流式传输与异步支持。https://blog.langchain.dev/langchain-expression-language/

@@ -46,3 +46,12 @@ AI 安全关注防止 AI 系统被滥用或产生有害输出，包括内容安�
 - D. 两者检测能力相同，只是实现方式不同
 
 **解析**: 关键词黑名单：检测到"炸药"就拒绝，简单但误报率高、易绕过（用同义词或错别字）。Llama Guard 是专门训练的安全分类器，输入完整对话（含上下文），输出是否违反安全策略及类别（暴力/性内容/有害建议等）。理解"炸药"在烟火表演还是武器制造上下文中的不同含义。
+
+## 参考资料
+
+### 论文
+- **[Concrete Problems in AI Safety](https://arxiv.org/abs/1606.06565)** (Amodei et al., 2016) — 系统定义了 AI 安全的五类核心问题（避免负面副作用、避免奖励破解、可扩展监督等），是 AI 安全领域奠基性论文。https://arxiv.org/abs/1606.06565
+- **[Llama Guard: LLM-based Input-Output Safeguard for Human-AI Conversations](https://arxiv.org/abs/2312.06674)** (Meta AI, 2023) — 介绍 Llama Guard 内容安全分类器的设计与评测，展示了基于 LLM 的护栏相比规则过滤的优势。https://arxiv.org/abs/2312.06674
+
+### 博文/教程
+- **[Anthropic's Responsible Scaling Policy](https://www.anthropic.com/responsible-scaling-policy)** — Anthropic 官方博客。描述了 Anthropic 在模型规模提升时的安全评估和护栏部署策略，是理解工业界 AI 安全实践的重要参考。

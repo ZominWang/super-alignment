@@ -1,18 +1,27 @@
 id: understand
 name: 懂原理
 name_en: "Deep Understanding"
-desc: "从数学基础到大模型训练对齐的技术原理路径，适合想理解AI底层机制的人"
-desc_en: "A technical path from math foundations to LLM training and alignment — for people who want to understand how AI really works."
+desc: "从数学基础到大模型训练对齐的完整技术原理路径，融入自监督学习、训练数据工程、分布式训练等关键环节，适合想深入理解AI底层机制的人"
+desc_en: "A comprehensive technical path from math foundations through self-supervised learning to LLM training and alignment — for people who want to understand how AI really works under the hood."
 steps:
   - id: linear_algebra
   - id: probability_statistics
   - id: neural_network_basics
   - id: backpropagation
+  - id: cnn
+  - id: transfer_learning
+  - id: self_supervised_learning
   - id: attention_mechanism
   - id: transformer_arch
   - id: tokenization
+  - id: bert_encoder_models
   - id: pretrained_lm
   - id: llm_pretraining
+  - id: training_data_engineering
+  - id: scaling_laws
+  - id: distributed_training
   - id: sft
+  - id: reinforcement_learning
   - id: rlhf
+  - id: dpo_advanced
   - id: peft_lora

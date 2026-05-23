@@ -7,5 +7,5 @@ level: 2
 area: "application"
 color: "#9013FE"
 description: "基础提示设计、思维链、Few-shot学习、上下文工程与结构化输出"
-topic_count: 5
+topic_count: 6
 ---

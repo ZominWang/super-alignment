@@ -46,3 +46,10 @@ tags: ["engineering", "docker", "kubernetes", "deployment", "gpu"]
 - D. 蓝绿部署自动检测模型质量
 
 **解析**: 滚动更新在更新期间同时存在新旧版本处理请求（可能有不一致）。蓝绿部署：准备好完整的新版本（绿）→ 测试验证 → 将负载均衡器从蓝切换到绿（流量 100% 切换，秒级完成）→ 保留蓝版本作为回滚。代价是需要双倍的 GPU 资源（新旧版本同时运行）。
+
+## 参考资料
+
+### 博文/教程
+- **[Docker Official Documentation]** — Docker Inc.。Docker 官方文档，涵盖 Dockerfile 最佳实践、多阶段构建、层缓存优化等核心概念，是容器化入门的权威参考。https://docs.docker.com/
+- **[Kubernetes Official Documentation]** — Kubernetes 社区。Kubernetes 官方文档，包括 Deployment、HPA、Service 等资源的权威说明与生产部署实践指南。https://kubernetes.io/docs/home/
+- **[Best practices for containerizing AI/ML workloads]** — NVIDIA 技术博客。介绍使用 NVIDIA Container Toolkit 进行 GPU 容器化的配置要点及 LLM 服务框架（vLLM、TGI）的容器化最佳实践。https://developer.nvidia.com/blog/

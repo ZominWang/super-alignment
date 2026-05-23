@@ -46,3 +46,12 @@ lm-evaluation-harness（EleutherAI）是业界评测 LLM 的事实标准工具�
 - D. Leaderboard 评测在低精度（int8）下运行以节省资源，影响分数准确性
 
 **解析**: 常见的"评测洗白"手段：(1) Few-shot 数量选择性报告（在每个 benchmark 上选 0-shot 或 5-shot 中更高的）；(2) 自定义 prompt 格式（在系统提示中嵌入提示）；(3) 在测试集子集上评测；(4) 对特定 benchmark 进行针对性训练数据混入（"Data Contamination"）。lm-eval 通过标准化这些变量来揭示真实能力。lighteval（HuggingFace）是另一个正在兴起的竞争框架，同样强调可复现性。
+
+## 参考资料
+
+### 博文/教程
+- **[EleutherAI lm-evaluation-harness GitHub]** — EleutherAI。lm-evaluation-harness 官方代码仓库，包含 200+ benchmark 的实现、使用说明及新 benchmark 的贡献指南，是标准化 LLM 评测的事实工具。https://github.com/EleutherAI/lm-evaluation-harness
+- **[Open LLM Leaderboard]** — Hugging Face。基于 lm-evaluation-harness 构建的公开模型排行榜，提供标准化、可复现的开源模型能力对比，是开源 LLM 社区的评测参考基准。https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+
+### 论文
+- **[Holistic Evaluation of Language Models]** (Liang et al., 2022) — 提出 HELM 框架，与 lm-eval 互补，从多维度（准确性、鲁棒性、公平性）综合评估 LLM，强调评测的全面性与可复现性。https://arxiv.org/abs/2211.09110

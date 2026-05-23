@@ -46,3 +46,13 @@ tags: ["rag", "advanced-rag", "hyde", "self-rag", "reranking", "corrective-rag",
 - D. 允许模型在同一次推理中进行多轮检索，每轮检索基于上一轮的中间结论
 
 **解析**: 标准 RAG 无论是否需要都执行检索，且不验证检索结果质量。Self-RAG（Asai et al. 2023）通过训练特殊的反思 token，让模型在生成过程中能插入：(1) 检索决策（是否需要检索？）；(2) 相关性判断（检索结果是否与问题相关？）；(3) 支持性判断（生成内容是否被检索文档支持？）；(4) 效用判断（最终回答是否有用？）。这使 RAG 从被动流水线变为主动自我监督系统，在 ASQA、PopQA 等任务上显著减少幻觉。
+
+## 参考资料
+
+### 论文
+- **[Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection]** (Asai et al., 2023) — 提出反思 token 机制，使模型可自主决定是否检索并对结果进行批判性评估。https://arxiv.org/abs/2310.11511
+- **[Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)]** (Gao et al., 2022) — 提出假设文档嵌入方法，通过生成假设答案弥合问题与文档的语义鸿沟。https://arxiv.org/abs/2212.10496
+- **[Corrective Retrieval Augmented Generation (CRAG)]** (Yan et al., 2024) — 引入检索评估器和网络搜索补救机制，使 RAG 具备自我纠错能力。https://arxiv.org/abs/2401.15884
+
+### 博文/教程
+- **[Advanced RAG Techniques: An Illustrated Overview]** — Towards Data Science。系统梳理 HyDE、重排序、Self-RAG 等高级 RAG 技术的原理与工程实践。https://towardsdatascience.com/advanced-retrieval-augmented-generation-techniques-an-illustrated-overview

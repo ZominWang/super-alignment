@@ -46,3 +46,10 @@ tags: ["llm", "multimodal", "vision", "audio", "CLIP", "GPT-4V"]
 - D. 两者在性能上没有本质区别
 
 **解析**: 串联方式将各模态独立编码再融合，模态间交互有限，且切换模态有延迟（如语音→文字→LLM→语音）。原生多模态在 token 层面统一所有模态，可以做到实时语音对话（低延迟），以及真正理解图像中的时序信息（视频）。GPT-4o 展示了这一方向的潜力。
+
+## 参考资料
+
+### 论文
+- **[Flamingo: a Visual Language Model for Few-Shot Learning]** (Alayrac et al., 2022) — DeepMind 提出 Flamingo，通过 Perceiver Resampler 将视觉特征注入冻结 LLM，实现强大的少样本视觉问答能力，是 VLM 领域的奠基工作之一。https://arxiv.org/abs/2204.14198
+- **[Visual Instruction Tuning (LLaVA)]** (Liu et al., 2024) — 提出用 GPT-4 生成视觉指令微调数据，以极低成本训练出性能接近专有模型的开源视觉语言模型。https://arxiv.org/abs/2304.08485
+- **[Learning Transferable Visual Models From Natural Language Supervision (CLIP)]** (Radford et al., 2021) — OpenAI 提出 CLIP，用 4 亿图文对进行对比学习，奠定视觉-语言对齐嵌入空间的基础。https://arxiv.org/abs/2103.00020

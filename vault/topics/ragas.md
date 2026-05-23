@@ -46,3 +46,12 @@ RAGAS（RAG Assessment）提供了专门针对 RAG 系统的评估指标，包�
 - D. 只有无参考评估能处理开放域问题
 
 **解析**: 构建人工标注的测试集耗时耗力，且无法覆盖所有生产查询。RAGAS 的 Faithfulness、Answer Relevance 等指标不需要参考答案（只需查询、检索上下文、生成答案三元组），可以自动应用于每条生产数据，实现 24/7 的质量监控，而非仅在发布前做一次离线评估。
+
+## 参考资料
+
+### 论文
+- **[RAGAS: Automated Evaluation of Retrieval Augmented Generation]** (Es et al., 2023) — 提出 RAGAS 评估框架，定义 Faithfulness、Answer Relevance、Context Precision/Recall 四个核心指标，实现无参考标注的 RAG 系统自动评估。https://arxiv.org/abs/2309.15217
+
+### 博文/教程
+- **[RAGAS Documentation]** — Exploding Gradients。RAGAS 框架的官方文档，包含各指标的计算公式、与 LangChain/LlamaIndex 集成方法及测试集生成功能。https://docs.ragas.io
+- **[RAGAS GitHub]** — shahules786 / Jithin James 等。项目源代码与 Notebook 示例，包含从生产日志自动构建评估数据集的完整流程演示。https://github.com/explodinggradients/ragas

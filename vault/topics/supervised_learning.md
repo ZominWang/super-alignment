@@ -46,3 +46,10 @@ tags: ["ml", "supervised", "classification", "regression"]
 - D. 最大间隔只在线性可分情况下有意义
 
 **解析**: SVM 通过最大化超平面到最近训练点（支持向量）的距离来提高泛化能力。根据 Vapnik 的统计学习理论，最大化间隔等价于最小化模型复杂度（VC 维），从而降低泛化误差上界。核技巧将非线性问题转化为高维线性问题。
+
+## 参考资料
+
+### 博文/教程
+- **[Scikit-learn User Guide: Supervised Learning]** — scikit-learn 官方文档。涵盖线性回归、逻辑回归、SVM、决策树等所有主流监督学习算法的原理、参数与使用示例，是实践参考的首选资源。https://scikit-learn.org/stable/supervised_learning.html
+- **[Deep Learning（第5章：机器学习基础）]** — Ian Goodfellow, Yoshua Bengio & Aaron Courville，MIT Press。系统介绍偏差-方差权衡、过拟合与正则化、交叉验证等监督学习核心概念，理论与实践并重。https://www.deeplearningbook.org
+- **[统计学习方法（第2版）]** — 李航，清华大学出版社。以简洁的数学语言介绍感知机、SVM、决策树、最大熵模型等经典监督学习方法，是中文机器学习教材的标杆。

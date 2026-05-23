@@ -46,3 +46,12 @@ LLM API 成本随规模快速增长，系统性成本优化是生产部署的必
 - D. 路由到延迟最低的模型实例
 
 **解析**: "今天星期几" 这类简单问题 GPT-3.5（$0.002/1K tokens）足以完美回答，无需 GPT-4（$0.06/1K tokens，贵 30 倍）。路由策略：(1) 规则路由（关键词/长度阈值）；(2) 分类模型路由（训练小分类器判断任务类型）；(3) 级联路由（先发给小模型，若置信度低再发大模型）。实践中可将 50-80% 的请求路由到小模型，整体成本降低 60-80%。
+
+## 参考资料
+
+### 论文
+- **[Efficient Memory Management for Large Language Model Serving with PagedAttention]** (Kwon et al., 2023) — 提出 PagedAttention 机制，大幅提升 KV Cache 利用率，是 vLLM 的核心技术，显著提升推理吞吐量并降低每 token 成本。https://arxiv.org/abs/2309.06180
+- **[LLMLingua: Compressing Prompts for Accelerated Inference of Large Language Models]** (Jiang et al., 2023) — 提出基于困惑度的提示压缩方法，可将提示压缩至原长度的 20-50%，在保持响应质量的同时大幅降低 API 调用成本。https://arxiv.org/abs/2310.05736
+
+### 博文/教程
+- **[How to reduce LLM costs without sacrificing quality]** — Anthropic 工程博客。介绍提示缓存（Prompt Caching）、模型路由、批处理等实用成本优化策略，并附实际降本效果数据。https://www.anthropic.com/news/prompt-caching

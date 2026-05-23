@@ -46,3 +46,10 @@ LlamaIndex（原 GPT Index）专注于将私有数据连接到 LLM，提供了�
 - D. 根据用户权限限制查询范围
 
 **解析**: 若系统包含多个数据源（产品文档、财务数据库、FAQ），RouterQueryEngine 使用 LLM（或关键词匹配）判断查询属于哪类，路由到对应索引：事实查询→向量索引；摘要查询→SummaryIndex；结构化查询→SQLDatabase。这避免了对所有数据源统一查询的噪音和成本。
+
+## 参考资料
+
+### 博文/教程
+- **[LlamaIndex 官方文档]** — LlamaIndex。完整涵盖数据摄取、索引类型、查询引擎、Agent 工作流的教程与 API 参考。https://docs.llamaindex.ai
+- **[Building Production-Ready RAG Applications with LlamaIndex]** — LlamaIndex 官方博客。介绍 SentenceWindowNodeParser、HierarchicalNodeParser 等高级索引策略在生产环境中的最佳实践。https://www.llamaindex.ai/blog/
+- **[LlamaIndex GitHub]** — Jerry Liu 等。包含丰富的 Notebook 示例，覆盖多文档问答、知识图谱索引、多 Agent 工作流等场景。https://github.com/run-llama/llama_index

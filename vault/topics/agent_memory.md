@@ -46,3 +46,12 @@ Agent 记忆系统将短期上下文扩展为长期持久化存储，规划能�
 - D. 减少每次工具调用的返回数据量
 
 **解析**: 长任务中，早期的工具调用结果和对话历史会占满上下文。压缩策略：(1) 滚动摘要（Summarize）：用 LLM 将旧历史压缩为摘要；(2) 选择性保留：只保留与当前子任务相关的历史；(3) 外部记忆：将重要信息存入向量库按需检索。LangChain 的 ConversationSummaryMemory 是典型实现。
+
+## 参考资料
+
+### 论文
+- **[MemGPT: Towards LLMs as Operating Systems]** (Packer et al., 2024) — 提出分层记忆系统，仿照操作系统的内存管理思想，让 LLM 实现跨会话的持久长期记忆。https://arxiv.org/abs/2310.08560
+- **[Cognitive Architectures for Language Agents]** (Sumers et al., 2024) — 系统综述 Agent 的记忆、规划、行动三大模块，建立认知架构的统一理论框架。https://arxiv.org/abs/2309.02427
+
+### 博文/教程
+- **[LLM Powered Autonomous Agents]** — Lilian Weng（OpenAI）。深度解析 Agent 的记忆类型（感知、短期、长期）与规划算法，是该领域最权威的入门综述博文。https://lilianweng.github.io/posts/2023-06-23-agent/

@@ -46,3 +46,12 @@ tags: ["math", "calculus", "gradient", "optimization"]
 - D. 使用全批次梯度而非小批次
 
 **解析**: Adam 结合了 Momentum（一阶矩，平滑梯度方向）和 RMSProp（二阶矩，为每个参数自适应调整学习率）的优点。参数更新为：m̂/（√v̂ + ε），自动为频繁更新的参数减小学习率，为稀疏梯度的参数增大学习率。
+
+## 参考资料
+
+### 论文
+- **[Adam: A Method for Stochastic Optimization]** (Diederik P. Kingma & Jimmy Ba, 2014) — 提出 Adam 优化器，结合自适应学习率与动量，成为深度学习训练的默认优化器。https://arxiv.org/abs/1412.6980
+- **[An Overview of Gradient Descent Optimization Algorithms]** (Sebastian Ruder, 2016) — 系统综述 SGD、Momentum、RMSProp、Adam 等优化算法的原理与比较，是优化算法学习的高质量综述。https://arxiv.org/abs/1609.04747
+
+### 视频（B站/YouTube）
+- **[Calculus — The Essence of Calculus]** — 3Blue1Brown。以直觉和几何视角讲解微积分核心概念（导数、积分、链式法则），为理解反向传播奠定基础。https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr

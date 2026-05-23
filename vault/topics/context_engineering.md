@@ -46,3 +46,16 @@ tags: ["context", "context-window", "memory", "chunking", "prompt-engineering", 
 - D. 分块大小对RAG效果没有明显影响
 
 **解析**: 分块是RAG上下文工程的核心问题。小块（128-256 tokens）检索精准但缺少上下文，模型可能无法理解片段意义；大块（512-1024 tokens）提供完整上下文但检索召回率可能下降且浪费token。最佳实践：按文档自然边界（段落、章节）分块；使用小块索引+大块送入模型（"parent document retriever"模式）；或使用层级索引（摘要索引+原文）。
+
+## 参考资料
+
+### 论文
+- **[Lost in the Middle: How Language Models Use Long Contexts]** (Nelson F. Liu et al., 2023) — 实证研究 LLM 对上下文中不同位置信息的利用情况，发现"中间遗失"现象，对上下文信息排布策略有直接指导意义。https://arxiv.org/abs/2307.03172
+
+### 博文/教程
+- **[LangChain: Memory and Context Management]** — LangChain 官方文档。介绍对话历史管理、摘要记忆、向量记忆等上下文工程方案的实现方式，提供可直接使用的代码示例。https://docs.langchain.com/docs/
+- **[Context Engineering for Agents]** — Anthropic 工程博客。从 Agent 系统设计角度讲解如何有效管理工具结果、历史对话和系统指令的上下文编排，是构建生产级 Agent 的实践参考。https://www.anthropic.com/engineering
+
+### 课程
+- **[Building Systems with the ChatGPT API]** — Isa Fulford & Andrew Ng / DeepLearning.AI（免费）。系统讲解多步系统中的上下文管理、对话历史维护与输出控制策略，以构建完整客服机器人为主线，含可运行代码。https://www.deeplearning.ai/short-courses/building-systems-with-chatgpt/
+- **[Anthropic Real World Prompting]** — Anthropic 官方课程（免费）。以真实生产场景（客服、文档问答、数据提取）为主线，讲解上下文信息的结构化组织、动态注入与长窗口管理，是上下文工程最贴近实战的系统教程。https://github.com/anthropics/courses/tree/master/real_world_prompting

@@ -46,3 +46,12 @@ Constitutional AI（CAI）是 Anthropic 提出的对齐方法，通过一组明�
 - D. 宪法由用户自定义，无固定内容
 
 **解析**: Anthropic 的宪法原则包括：诚实性（不欺骗）、无害性（不帮助危险活动）、人权尊重（不歧视）、保护儿童（不生成 CSAM）等，以及更积极的原则：关心用户长期幸福（而非仅满足即时需求）、考虑对第三方的影响。这些原则指导 AI 在边界情况下进行价值判断。
+
+## 参考资料
+
+### 论文
+- **[Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073)** (Bai et al., Anthropic, 2022) — Constitutional AI 方法的原始论文，详述了 SL-CAI 和 RL-CAI（RLAIF）两阶段训练流程及实验结果。https://arxiv.org/abs/2212.08073
+- **[RLAIF: Scaling Reinforcement Learning from Human Feedback with AI Feedback](https://arxiv.org/abs/2309.00267)** (Lee et al., Google, 2023) — 系统评估了 RLAIF 与 RLHF 的对比，证明 AI 生成的反馈在多个任务上可与人类标注相当。https://arxiv.org/abs/2309.00267
+
+### 博文/教程
+- **[Core Views on AI Safety: When, Why, What, and How](https://www.anthropic.com/news/core-views-on-ai-safety)** — Anthropic 官方博客。阐述 Constitutional AI 背后的安全理念和价值框架，是理解 CAI 动机的重要背景材料。

@@ -46,3 +46,12 @@ tags: ["ml", "ensemble", "random-forest", "boosting", "feature-engineering"]
 - D. 确保树的深度一致
 
 **解析**: XGBoost 的目标函数 = 损失 + Ω(树)，其中 Ω = γT + (1/2)λΣw²，T 是叶节点数，w 是叶权重。γ 控制树的复杂度（剪枝），λ 是 L2 正则化系数。相比传统 GBDT，这种正则化让 XGBoost 有更好的泛化能力。
+
+## 参考资料
+
+### 论文
+- **[Random Forests]** (Leo Breiman, 2001) — 提出随机森林算法，系统阐明 Bagging + 随机特征选择的组合策略，是集成学习领域引用最广泛的论文之一。Machine Learning, 45(1):5–32.
+- **[XGBoost: A Scalable Tree Boosting System]** (Tianqi Chen & Carlos Guestrin, 2016) — 提出 XGBoost，通过二阶梯度信息和正则化目标函数改进 GBDT，在众多竞赛中取得优异成绩。https://arxiv.org/abs/1603.02754
+
+### 博文/教程
+- **[Scikit-learn: Ensemble Methods]** — scikit-learn 官方文档。详细介绍随机森林、Gradient Boosting、AdaBoost 等集成方法的参数与用法，并提供特征重要性分析的实践指南。https://scikit-learn.org/stable/modules/ensemble.html

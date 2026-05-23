@@ -46,3 +46,12 @@ tags: ["ml", "unsupervised", "clustering", "dimensionality-reduction"]
 - D. VAE 不需要训练解码器
 
 **解析**: 普通自编码器将输入编码为固定的潜向量，无法生成。VAE 编码为高斯分布参数（均值μ和方差σ），通过重参数化技巧采样并解码，使潜空间连续可插值。损失 = 重建损失 + KL 散度正则项。
+
+## 参考资料
+
+### 论文
+- **[Auto-Encoding Variational Bayes]** (Diederik P. Kingma & Max Welling, 2013) — 提出变分自编码器（VAE），将变分推断与深度学习结合，成为生成模型的重要范式。https://arxiv.org/abs/1312.6114
+- **[Generative Adversarial Nets]** (Ian Goodfellow et al., 2014) — 提出生成对抗网络（GAN），通过生成器与判别器的博弈训练高质量生成模型，深刻影响了图像生成领域。https://arxiv.org/abs/1406.2661
+
+### 博文/教程
+- **[Visualizing Data using t-SNE]** (Laurens van der Maaten & Geoffrey Hinton, 2008) — 提出 t-SNE 算法的原始论文，同时也是理解高维数据可视化原理的权威参考。https://jmlr.org/papers/v9/vandermaaten08a.html

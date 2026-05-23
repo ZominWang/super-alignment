@@ -46,3 +46,17 @@ tags: ["rag", "embeddings", "semantic-search", "similarity", "dense-retrieval"]
 - D. 按句子分块总是最优的
 
 **解析**: 小块（如 128 tokens）语义集中，检索精准但上下文不足；大块（如 1024 tokens）上下文丰富但检索时会引入噪音。常见策略：重叠分块（chunk_overlap=50）保留块间连续性，父文档检索（小块检索+大块返回），语义分块（按自然段落或主题边界）。块大小还受限于嵌入模型的最大输入长度（如 512 tokens）。
+
+## 参考资料
+
+### 论文
+- **[Efficient Estimation of Word Representations in Vector Space]** (Mikolov et al., 2013) —— Word2Vec 开创性论文，提出 CBOW 和 Skip-gram 模型学习稠密词向量。https://arxiv.org/abs/1301.3781
+- **[Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks]** (Reimers & Gurevych, 2019) —— 提出 Sentence-BERT，通过孪生网络生成语义句子嵌入，大幅提升检索效率。https://arxiv.org/abs/1908.10084
+
+### 博文/教程
+- **[MTEB Leaderboard]** —— Massive Text Embedding Benchmark，衡量嵌入模型在分类、检索、聚类等任务上的表现。https://huggingface.co/spaces/mteb/leaderboard
+
+### 课程
+- **[Understanding and Applying Text Embeddings]** — Google Cloud / DeepLearning.AI（免费）。涵盖文本嵌入原理、语义相似度计算、分类与聚类应用，含 Vertex AI 实操 notebook，是嵌入向量应用的标准入门课。https://www.deeplearning.ai/short-courses/google-cloud-vertex-ai/
+- **[LangChain: Chat with Your Data]** — Harrison Chase / DeepLearning.AI（免费）。在构建 RAG 系统的过程中深度实践嵌入向量的生成、存储与检索，是理解嵌入实际用途的最佳配套课程。https://www.deeplearning.ai/short-courses/langchain-chat-with-your-data/
+- **[HuggingFace NLP Course — 第6/7章]** — Hugging Face（免费）。系统讲解 Sentence Transformers 与 Dense Embedding 模型的训练、微调与评估，含在 HuggingFace Hub 部署嵌入模型的完整 notebook，是嵌入模型工程化的权威来源。https://huggingface.co/learn/nlp-course/

@@ -46,3 +46,10 @@ AI 法规正在全球范围内快速发展，欧盟 AI 法案（EU AI Act）是�
 - D. 只规范面向未成年人的 AI 服务
 
 **解析**: 中国办法要求：(1) 算法备案（向网信办等主管部门报备）；(2) 训练数据合法（不含违法内容）；(3) 内容安全（不生成涉及国家安全、虚假信息的内容）；(4) 保护用户个人信息；(5) 明确告知用户在与 AI 交互；(6) 设置用户投诉机制。境外 LLM 需通过合规审查才能向中国用户提供服务。
+
+## 参考资料
+
+### 博文/教程
+- **[EU AI Act Official Text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689)** — 欧盟官方法律数据库 EUR-Lex。EU AI Act 正式发布全文（Regulation (EU) 2024/1689），是理解欧盟 AI 监管的第一手资料。
+- **[中国《生成式人工智能服务管理暂行办法》](https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm)** — 国家互联网信息办公室官网。中国生成式 AI 服务核心监管法规原文，规定了算法备案、内容安全和用户保护等要求。
+- **[GDPR and Artificial Intelligence: How does GDPR apply to AI systems?](https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-032021-use-artificial-intelligence-based-tools_en)** — 欧洲数据保护委员会（EDPB）官方指南。分析 GDPR 在 AI 系统自动化决策、数据主体权利等场景下的适用边界。

@@ -46,3 +46,10 @@ tags: ["llm", "fine-tuning", "sft", "instruction-tuning", "chat"]
 - D. 防止模型生成有害内容
 
 **解析**: 不同模型使用不同对话模板（如 Llama 的 [INST]...[/INST]，ChatML 的 <|im_start|>user 等）。模板将对话历史格式化为模型训练时见过的格式，使模型正确理解角色边界。模板不匹配会导致模型性能大幅下降。
+
+## 参考资料
+
+### 论文
+- **[Scaling Instruction-Finetuned Language Models]**(Chung et al., 2022) — FLAN 系列论文，系统研究指令微调对模型规模的缩放效应，FLAN-T5/PaLM。https://arxiv.org/abs/2210.11416
+- **[Finetuned Language Models Are Zero-Shot Learners]**(Wei et al., 2022) — FLAN 初始论文，证明指令微调可使语言模型获得零样本任务泛化能力。https://arxiv.org/abs/2109.01652
+- **[Self-Instruct: Aligning Language Models with Self-Generated Instructions]**(Wang et al., 2023) — 提出用大模型自身生成指令-响应对来构建 SFT 数据集的方法。https://arxiv.org/abs/2212.10560

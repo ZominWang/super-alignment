@@ -46,3 +46,17 @@ Skill 是封装了特定任务逻辑的可复用 Agent 组件。一个 Skill 通
 - D. 系统级的一次性配置，例如安装软件依赖
 
 **解析**: Skill 最适合"高频+可标准化"的任务。判断标准：①这件事你会反复做吗？②步骤相对固定吗？③输入格式可以明确定义吗？如果三个都是，封装成 Skill 会带来巨大复利。例子：市场调研 Skill（输入：竞品名，输出：结构化分析报告）、代码审查 Skill（输入：PR diff，输出：审查意见）、日程规划 Skill（输入：待办事项，输出：时间安排）。
+
+## 参考资料
+
+### 论文
+- **[Voyager: An Open-Ended Embodied Agent with Large Language Models]** (Wang et al., 2023) — 提出在 Minecraft 环境中让 LLM Agent 自主发现、编写并积累可复用技能库，展示了 Skill 自动化构建的完整范式。https://arxiv.org/abs/2305.16291
+- **[Toolformer: Language Models Can Teach Themselves to Use Tools]** (Schick et al., 2023) — 提出让模型自我监督地学习何时以及如何调用外部工具（计算器、搜索引擎、翻译 API），为 Skill 工具化奠定理论基础。https://arxiv.org/abs/2302.04761
+
+### 博文/教程
+- **[Building Reusable AI Skills with Semantic Kernel]** — Microsoft 技术博客。以企业场景为例，介绍如何定义、注册和组合 Skill，使其被 Planner 动态调用以完成复杂任务。https://devblogs.microsoft.com/semantic-kernel/
+
+### 课程
+- **[Functions, Tools and Agents with LangChain]** — Harrison Chase / DeepLearning.AI（免费）。Tool 封装与 Skill 工程化的核心实操，含 LangChain Tool 定义、输入验证与可复用工具库构建的最佳实践。https://www.deeplearning.ai/short-courses/functions-tools-agents-langchain/
+- **[AI Agents in LangGraph]** — Tavily & Harrison Chase / DeepLearning.AI（免费）。含工具 Skill 模块化设计章节，实战构建可被 Agent 动态发现与调用的 Skill 注册表。https://www.deeplearning.ai/short-courses/ai-agents-in-langgraph/
+- **[Anthropic Tool Use Course]** — Anthropic 官方课程（免费）。将每个 Skill 实现为符合 Claude API 规范的工具定义，演示如何构建可被 Orchestrator 调用的模块化 Skill 库，是 Claude 生态 Skill 工程化的权威参考。https://github.com/anthropics/courses/tree/master/tool_use

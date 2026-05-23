@@ -7,7 +7,7 @@ level: 3
 area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["basic_prompting"]
-difficulty: 1
+difficulty: 2
 importance: 4
 status: "unknown"
 tags: ["engineering", "openai-api", "sdk", "streaming", "rate-limit"]
@@ -46,3 +46,10 @@ OpenAI API 是目前最广泛使用的 LLM 接入方式，提供 Chat Completion
 - D. 速率限制是致命错误，应该让应用崩溃
 
 **解析**: 速率限制分为 RPM（每分钟请求数）和 TPM（每分钟 token 数）。最佳实践：(1) 捕获 429 错误，使用指数退避（第1次等1s，第2次等2s，第3次等4s...加随机 jitter）；(2) 在客户端实现队列，控制并发请求数；(3) 批量请求时估算 token 数，避免超出 TPM 限制。
+
+## 参考资料
+
+### 博文/教程
+- **[OpenAI API Reference]** — OpenAI。Chat Completions、Embeddings、Fine-tuning、Batch API 等全部接口的权威文档，含参数说明与代码示例。https://platform.openai.com/docs/api-reference
+- **[OpenAI Cookbook]** — OpenAI / 社区贡献。大量实用的 Jupyter Notebook 示例，涵盖流式输出、函数调用、批量处理、Embedding 聚类等常见工程场景。https://github.com/openai/openai-cookbook
+- **[OpenAI Developer Forum: Rate Limits Best Practices]** — OpenAI 社区。收录了速率限制处理、token 计算、并发控制等工程实践的社区讨论与官方解答。https://community.openai.com/

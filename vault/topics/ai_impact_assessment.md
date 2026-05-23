@@ -46,3 +46,10 @@ AI 影响评估（AIA）在 AI 系统部署前系统评估其潜在的社会、�
 - D. 模型升级后对系统性能的影响
 
 **解析**: 直接影响（一阶）：招聘 AI 拒绝了特定候选人。二阶影响：被拒候选人改变求职策略→劳动力市场结构改变→特定学历/技能的薪资波动→高校专业选择变化。这些影响通过社会反馈循环逐渐显现，部署时难以预测。需要长期追踪研究和社会科学家参与才能识别。
+
+## 参考资料
+
+### 博文/教程
+- **[Canada's Algorithmic Impact Assessment (AIA) Tool](https://www.canada.ca/en/government/system/digital-government/digital-government-innovations/responsible-use-ai/algorithmic-impact-assessment.html)** — 加拿大政府官网。加拿大联邦政府的算法影响评估工具，提供四级风险分级问卷和合规要求，是最成熟的政府 AIA 实践案例。
+- **[NIST AI RMF: Playbook for AI Impact Assessment](https://airc.nist.gov/Docs/2)** — 美国 NIST 官方。AI 风险管理框架配套手册，提供具体的影响评估操作步骤和检查清单，适合组织参照执行。
+- **[Datasheets for Datasets](https://arxiv.org/abs/1803.09010)** (Gebru et al., 2021) — 提出为训练数据集建立标准化"数据表"的方法，是 AI 影响评估中数据治理环节的重要实践框架。https://arxiv.org/abs/1803.09010

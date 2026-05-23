@@ -46,3 +46,12 @@ LLM 从训练数据中继承了人类社会的偏见（性别、种族、文化�
 - D. 后处理方法的计算成本太高
 
 **解析**: 后处理方法（如对输出进行人口统计均等化）优点是不需要重训练，可以快速部署。局限：(1) 需要预先定义敏感属性，无法覆盖未知维度；(2) 交叉偏见（对黑人女性的偏见可能不等于"黑人偏见+女性偏见"）难以用简单后处理解决；(3) 可能降低某些任务的准确性。根本解决需要在数据层面改善。
+
+## 参考资料
+
+### 论文
+- **[Counterfactual Fairness](https://arxiv.org/abs/1703.06856)** (Kusner et al., 2017) — 提出基于因果推断的反事实公平性定义，与 WinoBias 等测试方法直接对应，是理解反事实公平衡量方法的核心论文。https://arxiv.org/abs/1703.06856
+- **[Man is to Computer Programmer as Woman is to Homemaker? Debiasing Word Embeddings](https://arxiv.org/abs/1607.06520)** (Bolukbasi et al., 2016) — 首次系统证明词向量中存在性别偏见并提出去偏方法，奠定了 NLP 偏见研究的基础。https://arxiv.org/abs/1607.06520
+
+### 博文/教程
+- **[Fairness and Machine Learning: Limitations and Opportunities](https://fairmlbook.org/)** (Barocas, Hardt & Narayanan) — 免费开放的教材网站 fairmlbook.org。系统覆盖偏见来源、公平性定义及其数学矛盾、工程实践，是该领域最权威的综合参考资料。

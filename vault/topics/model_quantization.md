@@ -46,3 +46,10 @@ tags: ["llm", "quantization", "int8", "int4", "deployment"]
 - D. GGUF 只支持 INT8 量化
 
 **解析**: GGUF（GGML Unified Format）将整个模型打包为单个文件，llama.cpp 可以在纯 CPU 上运行，也支持将部分层卸载到 GPU（--n-gpu-layers）。支持 Q4_K_M、Q8_0 等多种量化级别，是个人在 MacBook 等设备上运行大模型的主流方案。
+
+## 参考资料
+
+### 论文
+- **[LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale]**(Dettmers et al., 2022) — 首次将 INT8 量化应用于大规模 Transformer，解决异常值问题。https://arxiv.org/abs/2208.07339
+- **[GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers]**(Frantar et al., 2023) — 基于最优脑手术（OBS）的逐层量化方法，实现高精度 INT4 量化。https://arxiv.org/abs/2210.17323
+- **[QLoRA: Efficient Finetuning of Quantized Language Models]**(Dettmers et al., 2023) — 4-bit 量化结合 LoRA 微调，使消费级 GPU 可微调大模型。https://arxiv.org/abs/2305.14314

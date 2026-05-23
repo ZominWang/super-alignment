@@ -46,3 +46,10 @@ tags: ["llm", "scaling-laws", "chinchilla", "compute", "emergent"]
 - D. 取决于具体硬件
 
 **解析**: 训练成本支付一次，推理成本持续积累。对于高流量的线上服务，推理成本可能在数月内超过训练成本。更小的充分训练模型（遵循 Chinchilla 法则）在相同性能下参数量更少，推理更快更便宜。Llama 系列的设计哲学正是面向推理效率优化。
+
+## 参考资料
+
+### 论文
+- **[Scaling Laws for Neural Language Models]**(Kaplan et al., 2020) — GPT-3 相关研究，首次系统分析模型性能与计算量、参数量的幂律关系。https://arxiv.org/abs/2001.08361
+- **[Training Compute-Optimal Large Language Models]**(Hoffmann et al., 2022) — Chinchilla 论文，提出最优计算分配下参数量与训练 token 数应等比例增长的法则。https://arxiv.org/abs/2203.15556
+- **[Scaling Data-Constrained Language Models]**(Muennighoff et al., 2023) — 当数据量受限时（数据耗尽场景），分析多轮重复训练数据的缩放行为。https://arxiv.org/abs/2305.16264

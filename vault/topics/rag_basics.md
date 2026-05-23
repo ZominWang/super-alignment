@@ -46,3 +46,20 @@ RAG（检索增强生成）将外部知识库与 LLM 结合，解决 LLM 知识�
 - D. 用户问题收集→答案生成→人工标注→模型更新
 
 **解析**: 完整摄取流程：(1) 加载文档（PDF/Word/HTML等）；(2) 提取纯文本；(3) 按策略分块（固定大小/语义/层次）；(4) 调用嵌入模型生成向量；(5) 存储向量和原始文本到向量数据库。元数据（来源、日期、章节）可用于过滤检索，提升精准度。
+
+## 参考资料
+
+### 论文
+- **[Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks]** (Lewis et al., 2020) —— RAG 起源论文，提出将检索与生成结合的框架解决知识密集型任务。https://arxiv.org/abs/2005.11401
+- **[Retrieval-Augmented Generation for Large Language Models: A Survey]** (Gao et al., 2023) —— RAG 领域全面综述，涵盖范式、增强方法和评估。https://arxiv.org/abs/2312.10997
+
+### 视频（B站/YouTube）
+- **[RAG From Scratch]** —— LangChain 官方视频系列，从零开始讲解 RAG 系统的各组件实现（索引、检索、生成、多查询、RAG Fusion 等共15集）。https://youtube.com/@LangChain
+
+### 博文/教程
+- **[LangChain RAG 教程]** —— LangChain 官方文档，涵盖文档加载、分块、检索、生成完整流程。https://python.langchain.com/docs/tutorials/rag/
+
+### 课程
+- **[LangChain: Chat with Your Data]** — Harrison Chase / DeepLearning.AI（免费）。从文档加载到完整 RAG 问答系统的端到端实战，覆盖 PDF、网页、Notion 等多种数据源，是 RAG 上手的最佳第一课。https://www.deeplearning.ai/short-courses/langchain-chat-with-your-data/
+- **[HuggingFace NLP Course — RAG 章节]** — Hugging Face（免费）。以 HuggingFace 生态为核心，系统讲解 FAISS 向量索引构建、DPR 检索器训练与 RAG 问答系统的端到端实现，是理解 RAG 底层机制的权威教材。https://huggingface.co/learn/nlp-course/
+- **[Anthropic Cookbook — RAG 示例]** — Anthropic 官方。包含基于 Claude 的 RAG 系统完整实现，含文档分块策略、嵌入向量生成与 Claude 作为生成器的集成示例。https://github.com/anthropics/anthropic-cookbook

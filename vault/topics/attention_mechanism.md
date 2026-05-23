@@ -46,3 +46,10 @@ tags: ["llm", "attention", "self-attention", "transformer"]
 - D. 使模型能够处理更长的序列
 
 **解析**: 自注意力计算 Q·K^T 时，打乱序列顺序不影响每对词的注意力权重（置换不变性）。但语言中词序至关重要（"猫吃鱼"≠"鱼吃猫"）。正弦余弦位置编码或可学习的位置嵌入将位置信息加入词嵌入，使模型能感知顺序。
+
+## 参考资料
+
+### 论文
+- **[Neural Machine Translation by Jointly Learning to Align and Translate]**(Bahdanau et al., 2015) — 注意力机制的起源之作，首次在 Seq2Seq 中引入对齐机制。https://arxiv.org/abs/1409.0473
+- **[Attention Is All You Need]**(Vaswani et al., 2017) — 提出缩放点积注意力和多头注意力，奠定了 Transformer 的基石。https://arxiv.org/abs/1706.03762
+- **[Effective Approaches to Attention-based Neural Machine Translation]**(Luong et al., 2015) — 提出全局/局部注意力及多种对齐函数变体。https://arxiv.org/abs/1508.04025

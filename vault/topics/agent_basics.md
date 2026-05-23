@@ -46,3 +46,21 @@ AI Agent 是能够感知环境、规划行动并使用工具完成复杂任务�
 - D. 减少工具数量以降低复杂度
 
 **解析**: 鲁棒的 Agent 需要：(1) 在系统提示中明确错误处理策略（"若工具返回错误，请说明原因并尝试替代方案"）；(2) 设置最大重试次数防止无限循环；(3) 实现回退机制（工具A失败则尝试工具B）；(4) 清晰的任务完成/失败判断条件。
+
+## 参考资料
+
+### 论文
+- **[ReAct: Synergizing Reasoning and Acting in Language Models]** (Yao et al., 2023) —— 提出 ReAct 框架，将推理与行动交替进行，是 Agent 基础范式。https://arxiv.org/abs/2210.03629
+- **[A Survey on Large Language Model based Autonomous Agents]** (Wang et al., 2024) —— LLM Agent 领域的全面综述，涵盖架构、能力与应用。https://arxiv.org/abs/2308.11432
+
+### 视频（B站/YouTube）
+- **[AI Agentic Design Patterns]** —— 吴恩达（Andrew Ng）/ DeepLearning.AI The Batch。关于 AI Agent 四大设计模式的系列文章，是理解 Agent 架构的权威入门。https://www.deeplearning.ai/the-batch/agentic-design-patterns-part-1-reflection/
+
+### 博文/教程
+- **[LLM Powered Autonomous Agents]** —— Lilian Weng (OpenAI) 撰写，系统梳理 LLM Agent 的核心组件：规划、记忆与工具使用。https://lilianweng.github.io/posts/2023-06-23-agent/
+
+### 课程
+- **[AI Agents in LangGraph]** — Tavily & Harrison Chase / DeepLearning.AI（免费）。从零构建支持工具调用、持久记忆与人机协作的 Agent 系统，以 LangGraph 状态机为核心，是 Agent 工程化的最佳入门课。https://www.deeplearning.ai/short-courses/ai-agents-in-langgraph/
+- **[Functions, Tools and Agents with LangChain]** — Harrison Chase / DeepLearning.AI（免费）。全面覆盖 Function Calling、工具调用链与 Agent 执行器构建，是理解 ReAct 循环工程实现的配套课程。https://www.deeplearning.ai/short-courses/functions-tools-agents-langchain/
+- **[Anthropic Building Effective Agents Course]** — Anthropic 官方课程（免费）。以 Claude 为核心，系统实现五种 Agent 模式（Prompt Chaining、Routing、Parallelization、Orchestrator-Subagent、Evaluator-Optimizer），含完整 notebook，是构建生产级 Agent 的权威教程。https://github.com/anthropics/courses/tree/master/building_effective_agents
+- **[Building Effective Agents]** — Anthropic 官方博客（2024）。Anthropic 工程团队总结的 Agent 设计原则：何时用 workflow vs 自主 Agent、如何保持简单性、常见 Agent 架构模式，是理解 Agent 设计哲学的必读文章。https://www.anthropic.com/research/building-effective-agents

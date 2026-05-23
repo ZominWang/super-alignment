@@ -46,3 +46,12 @@ tags: ["deep-learning", "neural-networks", "activation", "forward-pass"]
 - D. ReLU 保证输出为概率值
 
 **解析**: Sigmoid 的梯度最大为 0.25，深层网络中梯度连乘后趋近于零（梯度消失）。ReLU 在 x>0 时梯度为1，不会引入额外的梯度衰减。但 ReLU 存在"死亡 ReLU"问题（x<0 时梯度永远为0），LeakyReLU 和 GELU 是改进版本。
+
+## 参考资料
+
+### 论文
+- **[Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift]** (Sergey Ioffe & Christian Szegedy, 2015) — 提出 Batch Normalization，大幅加速了深度网络训练，成为现代神经网络的标准组件。https://arxiv.org/abs/1502.03167
+
+### 博文/教程
+- **[Deep Learning（深度学习花书）]** — Ian Goodfellow, Yoshua Bengio & Aaron Courville，MIT Press。深度学习领域最权威的教材，第6章系统介绍前馈神经网络、激活函数与正则化方法。https://www.deeplearningbook.org
+- **[Neural Networks and Deep Learning]** — Michael Nielsen。免费在线书籍，以直觉和代码为主导，深入浅出地讲解神经网络工作原理，适合初学者系统入门。http://neuralnetworksanddeeplearning.com

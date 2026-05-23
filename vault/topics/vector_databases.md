@@ -46,3 +46,18 @@ tags: ["rag", "vector-db", "faiss", "pinecone", "chroma", "weaviate", "ANN"]
 - D. 混合搜索只在处理中文时有优势
 
 **解析**: 用户搜索"GPT-4 的上下文窗口长度"：BM25 能精确匹配"GPT-4"和"上下文窗口"等关键词；向量搜索能找到语义相关的"大模型输入长度限制"等描述。Reciprocal Rank Fusion（RRF）或加权融合将两种检索结果合并，通常比单一方式召回率高 5-15%。
+
+## 参考资料
+
+### 论文
+- **[Billion-scale similarity search with GPUs]** (Johnson et al., 2019) —— FAISS 库论文，提出基于 GPU 的十亿级向量相似搜索方案。https://arxiv.org/abs/1702.08734
+- **[Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs]** (Malkov & Yashunin, 2018) —— HNSW 算法论文，提出层次可导航小世界图实现高效 ANN 搜索。https://arxiv.org/abs/1603.09320
+
+### 博文/教程
+- **[Milvus 官方文档]** —— 开源向量数据库，支持混合搜索与十亿级向量管理。https://milvus.io/docs
+- **[ChromaDB 官方文档]** —— 轻量级嵌入数据库，适合快速原型开发。https://docs.trychroma.com
+- **[Qdrant 官方文档]** —— 高性能向量搜索引擎，支持过滤与分组。https://qdrant.tech/documentation/
+
+### 课程
+- **[Vector Databases: from Embeddings to Applications]** — Weaviate / DeepLearning.AI（免费）。系统讲解向量数据库原理、HNSW 近似近邻索引、ANN 搜索、混合搜索策略与生产部署，含 Weaviate 实操，是最完整的向量数据库实战课。https://www.deeplearning.ai/short-courses/vector-databases-embeddings-applications/
+- **[HuggingFace NLP Course — FAISS 向量索引]** — Hugging Face（免费）。以 FAISS 为核心讲解向量索引构建、Flat/IVF/HNSW 索引类型选择与大规模检索优化，含完整 Python 实操 notebook，适合需要深入理解索引原理的学习者。https://huggingface.co/learn/nlp-course/

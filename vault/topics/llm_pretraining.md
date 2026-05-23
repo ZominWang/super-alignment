@@ -46,3 +46,10 @@ tags: ["llm", "pretraining", "distributed-training", "data-pipeline"]
 - D. BF16 比 FP16 精度更高但速度更慢
 
 **解析**: FP16 的数值范围小，小梯度可能下溢为零。Loss Scaling 在前向传播后将损失乘以大数（如 2^15），梯度同比放大，反向传播后再缩小回来。BF16（Brain Float 16）保持与 FP32 相同的指数位，不需要 Loss Scaling，在 A100 等新硬件上更常用。
+
+## 参考资料
+
+### 论文
+- **[Language Models are Few-Shot Learners]** (Brown et al., 2020) —— GPT-3 论文，展示 175B 参数模型通过上下文学习即可解决多种任务。https://arxiv.org/abs/2005.14165
+- **[LLaMA: Open and Efficient Foundation Language Models]** (Touvron et al., 2023) —— Meta 开源大模型系列，证明仅用公开数据可训练出媲美闭源模型的性能。https://arxiv.org/abs/2302.13971
+- **[The Llama 3 Herd of Models]** (Dubey et al., 2024) —— Llama 3 系列论文，涵盖 8B 到 405B 参数的训练细节与评测结果。https://arxiv.org/abs/2407.21783

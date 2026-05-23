@@ -46,3 +46,10 @@ LLM 评估是构建可靠 AI 应用的基础，但也是最难的部分。自动
 - D. 两者同样可靠，选择取决于预算
 
 **解析**: 若参考答案由 GPT-4 生成，再用 GPT-4 评估，形成自我循环，系统性偏差无法被发现。人工标注（Subject Matter Expert）写的参考答案代表"真正正确"的标准，且专家可以发现 GPT-4 的错误。黄金数据集应覆盖：典型案例、边界案例、已知的失败模式，定期更新以反映新需求。
+
+## 参考资料
+
+### 论文
+- **[Holistic Evaluation of Language Models]** (Liang et al., 2023) —— HELM 框架，提出多维度全面评估 LLM 的方法论，涵盖准确性、校准、鲁棒性、公平性等。https://arxiv.org/abs/2211.09110
+- **[A Survey on Evaluation of Large Language Models]** (Chang et al., 2023) —— LLM 评估领域综述，系统梳理评估基准、方法和指标。https://arxiv.org/abs/2307.03109
+- **[Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena]** (Zheng et al., 2023) —— 提出 MT-Bench 和 Chatbot Arena，用 LLM 作为评判者的评估范式。https://arxiv.org/abs/2306.05685

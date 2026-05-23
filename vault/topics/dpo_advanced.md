@@ -46,3 +46,10 @@ DPO（Direct Preference Optimization）将 RLHF 的奖励模型+PPO 流程简化
 - D. SimPO 只训练 LoRA 适配器，用原始基础模型的输出作为参考
 
 **解析**: SimPO（Meng et al. 2024）的关键设计：(1) 用 1/|y|·log π_θ(y|x)（长度归一化对数概率）作为奖励，解决 DPO 倾向生成短回答的问题；(2) 引入目标奖励差 γ，要求好回答的奖励至少比坏回答高 γ。去掉参考模型意味着：训练时无需额外加载一个 frozen 模型，显存减少约一半，实现更简单。实验显示 SimPO 在 AlpacaEval 2 等基准上优于 DPO/IPO，同时生成回答质量更高（更少重复、长度更合理）。
+
+## 参考资料
+
+### 论文
+- **[Direct Preference Optimization: Your Language Model is Secretly a Reward Model]**(Rafailov et al., 2023) — DPO 奠基论文，证明可直接从偏好对数据优化 LLM，无需训练独立奖励模型。https://arxiv.org/abs/2305.18290
+- **[KTO: Model Alignment as Prospect Theoretic Optimization]**(Ethayarajh et al., 2024) — 提出基于前景理论的 KTO 方法，只需"好/坏"二元标签，无需偏好对。https://arxiv.org/abs/2402.01306
+- **[SimPO: Simple Preference Optimization with a Reference-Free Reward]**(Meng et al., 2024) — 去除参考模型，使用长度归一化对数概率作为隐式奖励。https://arxiv.org/abs/2405.14734

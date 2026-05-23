@@ -46,3 +46,13 @@ tags: ["prompting", "structured-output", "json", "prompt-optimization", "DSPy"]
 - D. 压缩提示词以减少 token 消耗
 
 **解析**: DSPy（Khattab 等，2023）将 LLM 程序定义为模块化的 Signatures（输入→输出），Compile 步骤使用少量带标签示例作为训练集，通过 BootstrapFewShot 等优化器在提示空间中搜索（自动选择示例、调整指令措辞），找到在验证集上指标最优的提示配置，无需人工迭代提示词。
+
+## 参考资料
+
+### 论文
+- **[DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines](https://arxiv.org/abs/2310.03714)** (Khattab et al., 2023) — 提出 DSPy 框架，将 LLM 程序定义为声明式模块并通过编译自动优化提示和少样本示例，是结构化输出与提示优化领域的重要工作。https://arxiv.org/abs/2310.03714
+- **[Outlines: Efficient Guided Generation for LLMs](https://arxiv.org/abs/2307.09702)** (Willard & Louf, 2023) — 提出通过有限状态机约束 LLM 解码过程以保证输出格式正确性的方法，是结构化输出约束采样的核心算法论文。https://arxiv.org/abs/2307.09702
+
+### 博文/教程
+- **[Instructor: Structured LLM Outputs](https://python.useinstructor.com/)** — Instructor 库官方文档。基于 Pydantic 模型从 LLM 提取结构化数据，支持 OpenAI、Anthropic 等多个后端，提供完整的使用教程和最佳实践。
+- **[JSON Schema Official Specification](https://json-schema.org/)** — JSON Schema 官方规范网站。定义了 JSON 数据的验证语法，是 OpenAI Structured Output、工具调用参数约束等功能的底层标准。

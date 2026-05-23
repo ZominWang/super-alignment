@@ -46,3 +46,15 @@ tags: ["prompting", "system-prompt", "instruction", "context"]
 - D. "请参考上面的格式"
 
 **解析**: LLM 对模糊指令（"好的格式"）的理解因模型而异。精确的格式规范（字段名、数据类型、示例）大幅减少格式不一致的情况。在生产系统中，通常进一步结合 JSON Schema 约束或工具调用的 `response_format` 参数来强制格式。
+
+## 参考资料
+
+### 博文/教程
+- **[Prompt Engineering Guide]** — Anthropic 官方文档。系统介绍清晰指令、角色设定、格式约束、输出控制等提示设计最佳实践，以 Claude 为示例但原则通用。https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview
+- **[Prompt Engineering Guide]** — OpenAI 官方文档。介绍 GPT 系列模型的提示技巧，涵盖系统提示、few-shot 示例、思维链等策略，与 Anthropic 指南互为补充。https://platform.openai.com/docs/guides/prompt-engineering
+- **[Prompt Engineering Guide]** — DAIR.AI（Elvis Saravia）。开源的提示工程综合指南，涵盖零样本、少样本、CoT、ReAct 等多种技术，并持续更新最新研究进展。https://www.promptingguide.ai
+
+### 课程
+- **[ChatGPT Prompt Engineering for Developers]** — Isa Fulford & Andrew Ng / DeepLearning.AI（免费）。覆盖迭代提示、摘要、推理、转换、扩写等核心应用场景，含配套 Jupyter Notebook，2小时完成，是提示工程入门首选课程。https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/
+- **[Anthropic Cookbook]** — Anthropic 官方实战 notebook 集合。涵盖角色设定、格式控制、多轮对话、工具调用等大量可直接运行的示例，是贴近 Claude 实际开发的最佳实操资源。https://github.com/anthropics/anthropic-cookbook
+- **[Anthropic Prompt Engineering Interactive Tutorial]** — Anthropic 官方课程（免费）。9章交互式教程，覆盖角色提示、XML标签、思维链、格式控制与幻觉规避等核心技巧，直接在 Claude API 上运行，是最贴近实战的提示工程系统课。https://github.com/anthropics/courses/tree/master/prompt_engineering_interactive_tutorial

@@ -46,3 +46,10 @@ tags: ["model-selection", "gpt", "claude", "gemini", "llama", "cost", "benchmark
 - D. 产品处于早期验证阶段，用户量很小
 
 **解析**: 开源模型自部署的核心优势是：数据完全留在自己控制的环境中（不发往任何第三方API）。在医疗、金融、政府等对数据隐私有严格要求的领域，这往往是硬性需求。但前提是有GPU资源和团队有能力维护推理服务（vLLM、Ollama等）。快速开发、强能力需求、早期验证这三种场景更适合用托管API——省掉运维开销，专注产品。
+
+## 参考资料
+
+### 博文/教程
+- **[Open LLM Leaderboard]** — Hugging Face。基于标准化 benchmark（MMLU、ARC、HellaSwag、TruthfulQA 等）的开源模型能力排行榜，是比较不同开源模型综合性能的权威参考。https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+- **[Chatbot Arena Leaderboard]** — LMSYS。基于人类偏好盲测的模型 Elo 排行榜，涵盖闭源与开源模型，是评估对话质量与真实使用体验的主流参考。https://chat.lmsys.org/
+- **[How to Choose the Right LLM for Your Use Case]** — Cohere 工程博客。从任务类型、上下文长度、延迟、成本、隐私合规等维度提供实用选型框架，帮助工程团队做出有依据的模型选型决策。https://cohere.com/blog/

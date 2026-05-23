@@ -46,3 +46,12 @@ Tokenization 将原始文本转化为模型可处理的 token 序列。BPE（字
 - D. 用英文全写单词描述（无缩写）
 
 **解析**: LLM API 按 token 计费。空格、换行、格式化字符都会消耗 token。同样语义内容，紧凑 JSON 比格式化 JSON 少用 30-50% 的 token。英文单词的 token 效率通常高于中文（英文一个词约 1-2 个 token，中文每字约 0.5-1 个 token）。了解分词是优化成本的基础。
+
+## 参考资料
+
+### 论文
+- **[Neural Machine Translation of Rare Words with Subword Units]** (Rico Sennrich, Barry Haddow & Alexandra Birch, 2016) — 将 BPE（字节对编码）引入 NMT，解决罕见词问题，成为现代 LLM 分词的主流方案。https://arxiv.org/abs/1508.07909
+- **[SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing]** (Taku Kudo & John Richardson, 2018) — 提出 SentencePiece，直接从原始文本（无需预分词）学习子词词表，被 LLaMA、T5 等主流模型采用。https://arxiv.org/abs/1808.06226
+
+### 博文/教程
+- **[Tokenization in NLP]** — Hugging Face Tokenizers 文档。详细介绍 BPE、WordPiece、Unigram 等分词算法的实现原理，并提供主流模型分词器的使用示例。https://huggingface.co/docs/tokenizers/

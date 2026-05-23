@@ -46,3 +46,12 @@ LLM-as-Judge 用强 LLM（如 GPT-4）自动评估其他模型的开放式输出
 - D. Elo 评分不依赖 GPT-4 等强模型作为评判，成本更低
 
 **解析**: MT-Bench 等固定题集的问题：题目公开后模型可以针对性优化（过拟合），且 160 道题可能无法覆盖所有重要能力维度。Chatbot Arena（LMSYS）的设计：用户提交真实问题，两个匿名模型同时回答，用户选择更好的。目前已积累 200 万+ 投票，覆盖数千种任务类型。这种众包评测难以被单一厂商操控，且持续更新。弱点：评测周期长、用户群体不代表专业用户、中文/小语种覆盖不足。
+
+## 参考资料
+
+### 论文
+- **[G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment]** (Liu et al., 2023) — 提出 G-Eval 框架，用 GPT-4 基于思维链打分评估文本生成质量，与人类判断的相关性显著优于 BLEU/ROUGE。https://arxiv.org/abs/2303.16634
+- **[Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena]** (Zheng et al., 2023) — 提出 MT-Bench 160 道多轮对话题集及 LLM 评判框架，系统分析位置偏差和冗长偏差，是 LLM-as-Judge 领域的标志性论文。https://arxiv.org/abs/2306.05685
+
+### 博文/教程
+- **[LLM-as-a-Judge: A Survey]** — arXiv 综述。系统梳理 LLM 作为评判者的研究进展、常见偏差类型与缓解策略，适合全面了解该领域。https://arxiv.org/abs/2411.15594

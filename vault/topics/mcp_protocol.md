@@ -46,3 +46,15 @@ MCP（Model Context Protocol）是 Anthropic 于 2024 年发布的开放协议�
 - D. MCP 服务端必须部署在云端才能使用
 
 **解析**: MCP 的强大也带来风险：Agent 通过 MCP 可以真正操作现实世界（删除文件、发送邮件、执行代码）。关键安全原则：①最小权限原则，只给 Agent 需要的工具；②操作前确认，特别是写入、删除类操作；③审查第三方 MCP Server，确保来源可信；④沙箱隔离，文件操作限制在指定目录。理解"Agent 能做什么"和"Agent 应该做什么"的边界至关重要。
+
+## 参考资料
+
+### 博文/教程
+- **[Model Context Protocol — Official Documentation]** — Anthropic。MCP 协议的完整规范，涵盖 Server/Client 架构、Tools/Resources 定义、传输层（Stdio/HTTP）和安全考量。https://modelcontextprotocol.io/docs
+- **[MCP GitHub Repository]** — Anthropic / MCP 社区。包含协议规范、官方 SDK（Python/TypeScript）和社区维护的 MCP Server 集合（文件系统、数据库、浏览器等）。https://github.com/modelcontextprotocol
+- **[Introducing the Model Context Protocol]** — Anthropic 官方博客（2024）。MCP 协议发布公告，阐述设计动机、核心概念与与现有工具集成生态的关系。https://www.anthropic.com/news/model-context-protocol
+
+### 课程
+- **[MCP 官方快速入门]** — Anthropic。30 分钟内构建第一个 MCP Server，提供 Python 和 TypeScript 两个版本，涵盖工具注册、资源暴露与客户端集成的完整流程，是上手 MCP 最快的路径。https://modelcontextprotocol.io/quickstart/server
+- **[MCP 社区 Server 示例库]** — Anthropic / 社区维护。包含文件系统、数据库、浏览器控制、GitHub 等数十个生产可用的 MCP Server 实现，可直接参考或复用。https://github.com/modelcontextprotocol/servers
+- **[Anthropic Model Context Protocol Course]** — Anthropic 官方课程（免费）。从协议规范到完整 MCP Server/Client 实现的系统教程，含 Python SDK 使用、工具与资源注册、与 Claude Desktop 集成的端到端 notebook。https://github.com/anthropics/courses/tree/master/model_context_protocol

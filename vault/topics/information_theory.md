@@ -46,3 +46,12 @@ tags: ["math", "information-theory", "entropy", "KL-divergence"]
 - D. H = n
 
 **解析**: 均匀分布 P(x=i) = 1/n，熵 H = -Σ(1/n)·log₂(1/n) = log₂(n)。均匀分布具有最大熵，表示最大不确定性。这是最大熵原理的基础：在没有约束的情况下，均匀分布是最"公正"的分布。
+
+## 参考资料
+
+### 论文
+- **[A Mathematical Theory of Communication]** (Claude E. Shannon, 1948) — 信息论的奠基之作，定义了信息熵、信道容量等核心概念，是现代通信与机器学习信息度量的理论根基。https://archive.org/details/bstj27-3-379
+
+### 博文/教程
+- **[Elements of Information Theory（第2版）]** — Thomas M. Cover & Joy A. Thomas，Wiley 出版社。信息论领域最权威的教材，系统涵盖熵、KL 散度、互信息、信道编码等全部核心概念。
+- **[Visual Information Theory]** — Christopher Olah（colah's blog）。用直观可视化方式解释熵、KL 散度、交叉熵的含义，是理解信息论在机器学习中应用的最佳博文之一。http://colah.github.io/posts/2015-09-Visual-Information/

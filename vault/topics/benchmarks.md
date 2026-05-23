@@ -46,3 +46,14 @@ tags: ["evaluation", "benchmarks", "mmlu", "hellaswag", "chatbot-arena", "leader
 - D. 基准题目质量低下导致评估失效
 
 **解析**: 若训练数据（Web 爬取）包含 MMLU 原题（这在公开数据集中非常常见），模型直接记忆答案，高分不代表真实推理能力。检测方法：(1) N-gram 重叠检测（训练数据与基准题目的文本相似度）；(2) 用变体题目（改写同类问题）对比性能；(3) 动态基准（每次测试生成新题目）。这是为什么最新、私有的基准更有价值。
+
+## 参考资料
+
+### 论文
+- **[Measuring Massive Multitask Language Understanding]** (Hendrycks et al., 2021) — 提出涵盖 57 个学科的 MMLU 基准，成为评估 LLM 知识广度的主流标准。https://arxiv.org/abs/2009.03300
+- **[Evaluating Large Language Models Trained on Code]** (Chen et al., 2021) — 提出 HumanEval 基准，以函数级别的代码生成与单元测试评估模型编程能力。https://arxiv.org/abs/2107.03374
+- **[Holistic Evaluation of Language Models]** (Liang et al., 2022) — 提出 HELM 框架，从准确性、校准性、鲁棒性、公平性等多维度综合评估 LLM。https://arxiv.org/abs/2211.09110
+- **[Beyond the Imitation Game: Quantifying and Extrapolating the Capabilities of Language Models]** (Srivastava et al., 2023) — 发布 BIG-Bench，包含 204 项多样化任务，专门设计测试现有模型难以解决的问题。https://arxiv.org/abs/2206.04615
+
+### 博文/教程
+- **[Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference]** — LMSYS 博客。介绍基于 Elo 评分的人类偏好盲测排行榜，是业界最具生态效度的模型评估平台。https://lmsys.org/blog/2023-05-03-arena/

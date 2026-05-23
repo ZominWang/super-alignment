@@ -46,3 +46,13 @@ AI 红队测试通过模拟攻击者视角系统性地发现 LLM 应用的安全
 - D. 只有模型提供商才能修复 AI 漏洞
 
 **解析**: 软件漏洞修复通常是明确的代码修改。AI 安全漏洞的修复选项：(1) 增加护栏（可能误伤合法请求）；(2) RLHF/RLAIF 重新对齐（成本高，且改变了模型全局行为）；(3) 加入攻击样本进行对抗训练（可能导致其他能力下降）。这是为什么 AI 安全需要持续的漏洞追踪和分级响应机制，而非一次性修复。
+
+## 参考资料
+
+### 论文
+- **[Red Teaming Language Models to Reduce Harms: Methods, Scaling Behaviors, and Lessons Learned](https://arxiv.org/abs/2209.07858)** (Perez et al., Anthropic, 2022) — 系统介绍 Anthropic 的红队测试方法，包括人工红队和自动化红队的对比，分析了模型规模与攻击成功率的关系。https://arxiv.org/abs/2209.07858
+- **[Red Teaming Large Language Models](https://arxiv.org/abs/2202.03286)** (Ganguli et al., Anthropic, 2022) — 描述了对 Claude 早期版本进行大规模人工红队测试的经验，提出了系统性红队流程的最佳实践。https://arxiv.org/abs/2202.03286
+
+### 博文/教程
+- **[Microsoft PyRIT: Python Risk Identification Toolkit](https://github.com/Azure/PyRIT)** — Microsoft Azure 官方开源工具。提供自动化 LLM 红队测试的 Python 工具包，支持多种攻击策略和目标模型，是企业级红队实践的重要工具。
+- **[Garak: LLM Vulnerability Scanner](https://github.com/NVIDIA/garak)** — NVIDIA 开源的 LLM 安全评估框架，内置数十种攻击探针，覆盖提示注入、越狱、信息提取等常见漏洞类型。

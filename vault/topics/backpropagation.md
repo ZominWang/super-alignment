@@ -46,3 +46,13 @@ tags: ["deep-learning", "backprop", "gradient", "training"]
 - D. 这与网络深度有关，深网络需要更大初始化
 
 **解析**: Xavier 初始化假设激活函数关于零对称（如 tanh），方差设为 1/n_in。ReLU 将负半轴全部截断，信号强度减半，因此方差需要加倍为 2/n_in（He 初始化）。好的初始化让每层输出的方差在前向传播中保持稳定，避免信号消失或爆炸。
+
+## 参考资料
+
+### 论文
+- **[Learning Representations by Back-propagating Errors]** (David E. Rumelhart, Geoffrey E. Hinton & Ronald J. Williams, 1986) — 反向传播算法的里程碑论文，证明了多层网络可以通过梯度下降有效学习，奠定了现代深度学习的训练基础。Nature, 323:533–536.
+- **[Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification]** (Kaiming He et al., 2015) — 提出 He 初始化和 PReLU 激活函数，首次使深度残差网络在 ImageNet 上超越人类水平。https://arxiv.org/abs/1502.01852
+
+### 博文/教程
+- **[Yes you should understand backprop]** — Andrej Karpathy（Medium）。深入剖析反向传播的细节与常见陷阱，配合 micrograd 项目从零实现自动微分引擎，是理解反向传播实现的最佳实践教程。https://karpathy.medium.com/yes-you-should-understand-backprop-e2f06eab496b
+- **[The spelled-out intro to neural networks and backpropagation: building micrograd]** — Andrej Karpathy（YouTube）。从零用 Python 实现自动微分引擎，手推反向传播的每一步，是理解梯度计算机制最扎实的视频教程。https://www.youtube.com/watch?v=VMj-3S1tku0

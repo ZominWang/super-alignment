@@ -46,3 +46,12 @@ tags: ["safety", "robustness", "adversarial-examples", "distribution-shift"]
 - D. 使用最先进的攻击算法测试模型
 
 **解析**: CheckList（Ribeiro 等，2020）的三类测试：(1) MFT（Minimum Functionality Test）：在简单情况下模型是否有基本能力；(2) INV（Invariance Test）：语义不变的改写是否给出一致结果（如换同义词、变换句式）；(3) DIR（Directional Expectation Test）：语义变化后结果是否按预期方向变化。这个框架的思想已被扩展到 LLM 评估中。
+
+## 参考资料
+
+### 论文
+- **[Beyond Accuracy: Behavioral Testing of NLP Models with CheckList](https://arxiv.org/abs/2005.04118)** (Ribeiro et al., 2020) — 提出 CheckList 框架，通过 MFT/INV/DIR 三类测试系统评估 NLP 模型在各类扰动下的行为一致性，是鲁棒性评测的重要方法论。https://arxiv.org/abs/2005.04118
+- **[Certified Defenses for Data Poisoning Attacks](https://arxiv.org/abs/1706.03691)** (Steinhardt et al., 2017) — 研究针对数据投毒攻击的可证明防御方法，是模型训练期鲁棒性的经典参考。https://arxiv.org/abs/1706.03691
+
+### 博文/教程
+- **[TextAttack: A Framework for Adversarial Attacks, Data Augmentation, and Adversarial Training in NLP](https://github.com/QData/TextAttack)** — GitHub 开源框架文档。提供对 NLP 模型实施对抗性攻击和鲁棒性测试的工具库，支持多种攻击策略和防御方法的一站式评测。

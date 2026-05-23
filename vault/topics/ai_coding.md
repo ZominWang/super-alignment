@@ -7,7 +7,7 @@ level: 3
 area: "engineering"
 direction: "dev_frameworks"
 prerequisites: ["openai_api"]
-difficulty: 1
+difficulty: 2
 importance: 4
 status: "unknown"
 tags: ["ai-coding", "cursor", "claude-code", "copilot", "productivity", "engineering"]
@@ -46,3 +46,19 @@ AI辅助编程工具（Cursor、Claude Code、GitHub Copilot）正在改变软�
 - D. 自动补全 CSS 样式规则
 
 **解析**: AI生成的安全敏感代码（身份验证、加密、SQL查询构建、支付处理）需要格外警惕。AI可能生成功能上看起来正确但存在安全漏洞的代码（如SQL注入风险、不安全的随机数、硬编码密钥）。这类代码需要安全专家review。相比之下，测试框架、代码解释、CSS等出错代价低、易于发现的场景，AI辅助效率收益更大、风险更低。
+
+## 参考资料
+
+### 论文
+- **[Competition-Level Code Generation with AlphaCode](https://arxiv.org/abs/2203.07814)** (Li et al., DeepMind, 2022) — 首次展示 AI 在竞赛级编程题（Codeforces）上达到人类平均水平，分析了大规模代码生成模型的训练方法和采样策略。https://arxiv.org/abs/2203.07814
+- **[SWE-bench: Can Language Models Resolve Real-World GitHub Issues?](https://arxiv.org/abs/2310.06770)** (Jimenez et al., 2023) — 提出 SWE-bench 基准，评估 LLM 解决真实 GitHub Issue 的能力，是衡量 AI 编程 Agent 实用性的权威基准。https://arxiv.org/abs/2310.06770
+
+### 博文/教程
+- **[GitHub Copilot Research: Quantifying GitHub Copilot's Impact on Developer Productivity and Happiness](https://github.blog/news-insights/research/research-quantifying-github-copilots-impact-on-developer-productivity-and-happiness/)** — GitHub 官方博客。量化分析 Copilot 对开发效率的影响（55% 速度提升），是理解 AI 编程工具实际价值的第一手数据来源。
+- **[Claude Code: Deep Coding at Full Context](https://www.anthropic.com/claude-code)** — Anthropic 官方介绍页。阐述 Claude Code 作为终端 Agent 的设计理念：全代码库理解、多文件编辑、命令执行，是了解 AI 编程 Agent 能力边界的参考。
+
+### 课程
+- **[GitHub Copilot 官方学习路径]** — GitHub Skills。涵盖 Copilot Chat、代码补全、测试生成与 PR 自动化的系统实操练习，是掌握 AI 辅助编程工具链的最快上手路径。https://skills.github.com/
+- **[Pair Programming with a Large Language Model]** — DeepLearning.AI（免费）。聚焦 AI 结对编程场景：代码解释、Bug 修复、测试编写与代码重构，通过实际工程任务演示 LLM 在编程协作中的最佳使用姿势。https://www.deeplearning.ai/short-courses/pair-programming-llm/
+- **[Anthropic API Fundamentals]** — Anthropic 官方课程（免费）。系统掌握 Claude API 的核心能力：文本生成、视觉理解、工具调用与流式输出，含完整 Python notebook，是用 Claude 构建编程助手的第一手实战材料。https://github.com/anthropics/courses/tree/master/anthropic_api_fundamentals
+- **[Claude Code 官方文档]** — Anthropic。Claude Code 作为终端编程 Agent 的完整使用指南，涵盖代码库理解、多文件编辑、命令执行与 MCP 集成，是 AI 辅助编程实践的权威参考。https://docs.anthropic.com/en/docs/claude-code

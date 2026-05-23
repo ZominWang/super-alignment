@@ -46,3 +46,12 @@ tags: ["safety", "prompt-injection", "jailbreak", "adversarial", "attack"]
 - D. 对所有输入进行 HTML 转义
 
 **解析**: 将提示分为：(1) 系统层（完全可信）；(2) 应用层（经过应用验证）；(3) 用户层（不可信）；(4) 外部内容层（最不可信）。在提示中明确标记内容来源（`<external_content>`标签），并告知 LLM 外部内容中的指令不应被执行。这类似于 SQL 注入防护的参数化查询思路——分离"代码"和"数据"。
+
+## 参考资料
+
+### 论文
+- **[Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173)** (Greshake et al., 2023) — 首次系统研究间接提示注入对 LLM 集成应用的威胁，提出多种攻击向量并呼吁建立防御标准。https://arxiv.org/abs/2302.12173
+
+### 博文/教程
+- **[OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)** — OWASP 官方项目。列出 LLM 应用的十大安全风险，提示注入（LLM01）位列第一，提供详细的攻击描述、影响分析和防御建议，是 LLM 安全实践的核心参考清单。
+- **[Prompt Injection Attacks and Defenses in LLM-Integrated Applications](https://arxiv.org/abs/2310.12815)** (Liu et al., 2023) — 对提示注入攻击和防御的综合调研，覆盖攻击分类、防御策略评估和未来研究方向。https://arxiv.org/abs/2310.12815

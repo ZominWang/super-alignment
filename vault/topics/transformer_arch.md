@@ -46,3 +46,14 @@ Transformer 完全基于注意力机制，彻底取代了 RNN 结构。编码器
 - D. BatchNorm 在 GPU 上不受支持
 
 **解析**: BatchNorm 对 batch 内同一特征位置归一化，要求批内统计量稳定（大 batch）且长度一致。Transformer 处理变长序列，batch 内长度不同，BatchNorm 统计不准。LayerNorm 对单个样本的所有特征归一化，不受 batch 影响，天然适合 NLP 任务。
+
+## 参考资料
+
+### 论文
+- **[Attention Is All You Need]**(Vaswani et al., 2017) — Transformer 架构的开山之作，提出自注意力机制彻底取代 RNN。https://arxiv.org/abs/1706.03762
+
+### 视频（B站/YouTube）
+- **[Transformer论文逐段精读]** — 李沐/动手学深度学习。B站。https://www.bilibili.com/video/BV1pu411o7BE/
+
+### 博文/教程
+- **[The Illustrated Transformer]** — Jay Alammar。以可视化方式详解 Transformer 的每个组件，适合入门理解。https://jalammar.github.io/illustrated-transformer/

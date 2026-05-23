@@ -46,3 +46,12 @@ tags: ["math", "probability", "statistics", "bayesian"]
 - D. 证明神经网络具有普遍近似能力
 
 **解析**: CLT 说明无论原始分布形状如何，当 n 足够大时，样本均值的分布趋向正态分布。这使得用置信区间评估模型性能、假设检验比较方法优劣等统计推断工具得以在机器学习中广泛应用。
+
+## 参考资料
+
+### 论文
+- **[Pattern Recognition and Machine Learning]** (Christopher M. Bishop, 2006) — 机器学习领域经典教材，第1-2章系统介绍概率论、贝叶斯推断与概率图模型，是理解 ML 数学基础的必读参考。https://www.microsoft.com/en-us/research/people/cmbishop/prml-book/
+
+### 博文/教程
+- **[统计学习方法（第2版）]** — 李航，清华大学出版社。简洁严谨地介绍最大似然估计、贝叶斯估计等统计学习基础，中文读者的权威入门参考书。
+- **[Seeing Theory]** — Brown University。将概率论和统计学概念可视化的交互式网站，直观展示概率分布、贝叶斯推断、中心极限定理等核心概念。https://seeing-theory.brown.edu

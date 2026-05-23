@@ -46,3 +46,10 @@ HuggingFace 是开源 AI 的核心平台，提供 Model Hub（数十万模型）
 - D. map() 函数比循环更简洁，但性能相同
 
 **解析**: `dataset.map(tokenize_function, batched=True, num_proc=8)` 利用 Apache Arrow 的列式存储和内存映射，处理 100GB+ 数据集不会耗尽 RAM；`batched=True` 批量调用比逐条处理快 10-100 倍；处理结果自动缓存到磁盘，重复运行直接读缓存。
+
+## 参考资料
+
+### 博文/教程
+- **[Hugging Face Transformers Documentation]** — Hugging Face 官方文档。涵盖 Transformers 库的 Pipeline API、from_pretrained、Trainer 等核心接口的完整参考与使用示例。https://huggingface.co/docs/transformers
+- **[Hugging Face PEFT Documentation]** — Hugging Face 官方文档。介绍 LoRA、Prefix Tuning、Prompt Tuning 等参数高效微调方法的使用接口，是低显存微调实践的核心参考。https://huggingface.co/docs/peft
+- **[Hugging Face Datasets Documentation]** — Hugging Face 官方文档。详细介绍 datasets 库的加载、map 批处理、Arrow 内存映射与流式加载功能，适合处理大规模训练数据。https://huggingface.co/docs/datasets
