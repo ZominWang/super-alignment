@@ -296,20 +296,10 @@
     var allQuestions = [];
 
     (D.diagnostic_db || []).forEach(function (db) {
+      // 题目已在 build.py 中确定性预选，直接取前 n 题
       var qs = db.questions || [];
-      var sampled;
-      if (qs.length <= n) {
-        sampled = qs;
-      } else {
-        sampled = [];
-        var pool = qs.slice();
-        for (var i = 0; i < n; i++) {
-          var idx = Math.floor(Math.random() * pool.length);
-          sampled.push(pool[idx]);
-          pool.splice(idx, 1);
-        }
-      }
-      allQuestions = allQuestions.concat(sampled);
+      var selected = qs.slice(0, Math.min(n, qs.length));
+      allQuestions = allQuestions.concat(selected);
     });
 
     // Strip answers

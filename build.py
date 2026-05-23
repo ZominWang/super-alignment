@@ -86,7 +86,7 @@ def build():
     # ── 进度数据 ────────────────────────────────────────────────
     progress = get_progress()
 
-    # ── 预生成全局诊断题（15 方向 × 2 题） ───────────────────────
+    # ── 预生成全局诊断题（15 方向 × 2 题，确定性固定选题） ──
     diagnostic_db = []
     for d in directions:
         did = d['id']
@@ -104,22 +104,17 @@ def build():
                 q_copy['direction_name'] = d.get('name')
                 q_copy['area_id'] = d.get('area')
                 dir_questions.append(q_copy)
-        # 预计算每方向每组组合（最多2题），供前端快速采样
-        if len(dir_questions) >= 2:
-            diagnostic_db.append({
-                'direction_id': did,
-                'direction_name': d.get('name'),
-                'area_id': d.get('area'),
-                'questions': dir_questions,
-                # 预计算确定性打乱种子
-            })
-        elif dir_questions:
-            diagnostic_db.append({
-                'direction_id': did,
-                'direction_name': d.get('name'),
-                'area_id': d.get('area'),
-                'questions': dir_questions,
-            })
+
+        # 用 direction_id 做种子，确定性预选 2 题
+        rng = random.Random(hashlib.sha256(did.encode()).digest())
+        n = min(2, len(dir_questions))
+        selected = rng.sample(dir_questions, n) if n > 0 else []
+        diagnostic_db.append({
+            'direction_id': did,
+            'direction_name': d.get('name'),
+            'area_id': d.get('area'),
+            'questions': selected,
+        })
 
     # ── 预生成方向测评数据 ──────────────────────────────────────
     direction_quizzes = {}
@@ -275,6 +270,11 @@ def build():
     print(f"  包含: {len(areas)} 大类, {len(directions)} 方向, {len(topics)} 主题")
     print(f"  Quiz 题数: {sum(len(v) for v in quizzes.values())} 题")
     print(f"  搜索索引: {len(search_index)} 条")
+
+    size_kb = len(js_content) / 1024
+    if size_kb > 2048:
+        print(f"  ⚠ data.js 体积偏大 ({size_kb / 1024:.1f} MB)，"
+              f"加载可能变慢，考虑精简正文内容。")
 
     return data
 

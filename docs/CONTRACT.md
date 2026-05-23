@@ -168,15 +168,17 @@ interface SearchItem {
 | `/api/search?q=X` | GET | 全文搜索 |
 | `/api/recommendations?top_n=N` | GET | 下一步推荐 |
 | `/api/quiz/{topicId}` | GET | 单主题 Quiz（无答案） |
-| `/api/diagnostic?n_per_direction=N` | GET | 全局诊断题（无答案） |
+| `/api/diagnostic?n_per_direction=N` | GET | 全局诊断题（确定性预选，无答案） |
 | `/api/direction/{id}/quiz` | GET | 方向测评题（无答案） |
 | `/api/course-prompt/{type}/{id}` | GET | CLI 课程提示词 |
-| `/api/topic/{id}` | GET | 单主题详情 |
+| `/api/topic/{id}` | GET | 单主题详情（已实现，app.js 未调用） |
 | `/api/answer-check` | POST | 单题判分 |
 | `/api/diagnostic/submit` | POST | 提交诊断（写 localStorage） |
 | `/api/direction/{id}/quiz/submit` | POST | 提交方向测评 |
-| `/api/quiz/{id}/submit` | POST | 提交单主题测评 |
-| `/api/status/{id}` | POST | 手动更新状态 |
+| `/api/quiz/{id}/submit` | POST | 提交单主题测评（已实现，app.js 未调用） |
+| `/api/status/{id}` | POST | 手动更新状态（已实现，app.js 未调用） |
+
+> 标注"app.js 未调用"的端点保留供前端后续使用，可按需接入。
 
 ## 状态管理
 
@@ -212,3 +214,22 @@ python build.py --export all        # 全量导出
 
 依赖 `JSZip`（CDN: cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js）
 构建时导出还需 `genanki>=0.13`。
+
+## 设计决策
+
+### 全局诊断题确定性
+
+诊断题在 `build.py` 编译时用 direction_id 做种子预选，同一方向始终返回相同题目。
+用户重复诊断得到一致结果，便于跟踪进步。
+
+### 前置知识不强制校验
+
+状态更新（通过 API 或测评）不检查前置知识是否已掌握。
+用户可直接标记高难度 topic 为已掌握，不阻断学习流程。
+**推荐** 功能已考虑前置依赖，会优先推荐条件成熟的主题。
+
+### 无 Quiz 主题
+
+若某 topic 在 vault 中没有 Quiz 章节，对应的 Quiz API 返回空题目列表。
+前端建议在 UI 中对此情况给出提示（例如"该主题暂无测评"）。
+`build.py --validate` 会列出所有缺少 Quiz 的主题。
