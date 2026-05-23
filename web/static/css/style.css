@@ -3541,3 +3541,47 @@ body.export-modal-open .top-export-popover {
   cursor: not-allowed;
   opacity: .38;
 }
+
+
+/* Minimal copy pass: reduce explanatory text and let layout carry meaning. */
+.path-meta {
+  padding: 8px 12px 7px;
+}
+.path-progress-label,
+.path-compare-hint,
+.cockpit-next em {
+  display: none !important;
+}
+.cockpit-title {
+  margin-bottom: 2px;
+}
+.cockpit-next {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.2;
+}
+.cockpit-next span {
+  margin-bottom: 0;
+}
+.cockpit-next .cockpit-inline-cta {
+  width: auto;
+  min-height: 26px;
+  padding: 4px 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+.diagnostic-card-quick p {
+  display: none;
+}
+.diagnostic-card-quick {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "pill action" "title action";
+  align-items: center;
+  gap: 6px 12px;
+}
+.diagnostic-card-quick .diagnostic-pill { grid-area: pill; width: fit-content; }
+.diagnostic-card-quick h3 { grid-area: title; margin: 0; }
+.diagnostic-card-quick .btn-primary { grid-area: action; white-space: nowrap; }

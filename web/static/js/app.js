@@ -532,8 +532,7 @@ async function renderLearningCockpit() {
       });
     } else {
       nextEl.innerHTML = `<span>${t('cockpit.next_label')}</span>
-        <em>${getLang() === 'en' ? 'Run the 5-question quick diagnostic to unlock honest recommendations.' : '完成 5 题快速定位后，这里会出现基于真实答题的推荐。'}</em>
-        <button type="button" class="cockpit-inline-cta" onclick="startQuickDiagnostic()">${getLang() === 'en' ? 'Quick diagnostic →' : '开始快速定位 →'}</button>`;
+        <button type="button" class="cockpit-inline-cta" onclick="startQuickDiagnostic()">${getLang() === 'en' ? 'Quick diagnostic →' : '快速定位 →'}</button>`;
     }
   } catch (e) {
     console.warn('Cockpit render failed:', e);
@@ -2183,10 +2182,7 @@ function renderPathPanel() {
   // 进度摘要
   const pct = Math.round(masteredCount / path.steps.length * 100);
   if (metaEl) {
-    const desc = (getLang() === 'en' && path.desc_en) ? path.desc_en : (path.desc || '');
     metaEl.innerHTML = `<div class="path-progress-bar"><div class="path-progress-fill" style="width:${pct}%"></div></div>
-      <div class="path-progress-label">${escHtml(desc)}</div>
-      <button type="button" class="path-compare-hint" onclick="setActivePath(State.activePath === 'apply' ? 'understand' : 'apply')">${escHtml(t('path.compare_hint'))}</button>
       <div class="path-mastered-count">${escHtml(t('path.mastered_of', {n: masteredCount, total: path.steps.length}))}</div>`;
   }
 }
