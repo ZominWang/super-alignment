@@ -639,6 +639,21 @@ function switchToTab(tabName) {
 
 let svg, g, simulation, zoomBehavior;
 const AREA_R = 42, DIR_R = 26, TOPIC_R = 14;
+const GRAPH_AREA_COLORS = {
+  foundation: '#64D2FF',
+  llm: '#A78BFA',
+  application: '#0A84FF',
+  engineering: '#30D158',
+  safety: '#FF9F0A',
+};
+function graphAreaColor(areaId, fallback = '#8E8E93') {
+  return GRAPH_AREA_COLORS[areaId] || fallback;
+}
+function graphNodeColor(d) {
+  if (!d) return '#8E8E93';
+  const areaId = d.type === 'area' ? d.id : d.area;
+  return graphAreaColor(areaId, d.color || '#8E8E93');
+}
 
 function initGraph() {
   const wrap = document.getElementById('graph-svg').parentElement;
@@ -1656,10 +1671,15 @@ function clearSearchHighlight() {
   g.selectAll('.node-g').attr('opacity', null);
 }
 
-function updateLayerDots(level) {
-  // Layer dots only meaningful in domain drill-down view
+function updateLayerDots(level, label) {
   const indicator = document.querySelector('.layer-indicator');
-  if (indicator) indicator.style.visibility = level > 0 ? 'visible' : 'hidden';
+  const labels = getLang() === 'en'
+    ? ['Overview', 'Area', 'Direction', 'Topic']
+    : ['总览', '大类', '方向', '主题'];
+  if (indicator) {
+    indicator.style.visibility = 'visible';
+    indicator.dataset.label = label || labels[level] || labels[0];
+  }
   for (let i = 1; i <= 3; i++) {
     const dot = document.getElementById(`ld-${i}`);
     if (dot) dot.classList.toggle('active', i <= level);
@@ -1767,7 +1787,7 @@ function renderGlobalView() {
   State.expandedDirection = null;
   if (State.graphView !== 'path' && State.graphView !== 'dir') State.graphView = 'global';
   State.activePathStep = null;
-  updateLayerDots(0);   // hide layer indicator — global view shows all levels at once
+  updateLayerDots(0);   // global overview
   updateBreadcrumb([]);
   const backBtn = document.getElementById('crumb-back-global');
   if (backBtn) backBtn.style.display = 'none';
@@ -1899,8 +1919,8 @@ function renderGlobalView() {
       const ang = areaAngles[a.id] || { start: 0, end: 0 };
       return sectorArc.startAngle(ang.start).endAngle(ang.end)();
     })
-    .attr('fill', a => a.color).attr('fill-opacity', 0.07)
-    .attr('stroke', a => a.color).attr('stroke-opacity', 0.18).attr('stroke-width', 0.8);
+    .attr('fill', a => graphAreaColor(a.id, a.color)).attr('fill-opacity', 0.052)
+    .attr('stroke', a => graphAreaColor(a.id, a.color)).attr('stroke-opacity', 0.14).attr('stroke-width', 0.7);
 
   // ── Area labels (outside outer ring, icon + name) ──────────
   const areaLabelG = g.append('g').attr('class', 'g-area-labels');
@@ -1959,7 +1979,7 @@ function renderGlobalView() {
       if (s === 'mastered')   return '#30D158';
       if (s === 'learning')   return '#FF9F0A';
       if (s === 'needs_work') return '#FF453A';
-      return d.color || '#607D8B'; // unknown: use classification color
+      return graphNodeColor(d); // unknown: use harmonized classification color
     })
     .attr('fill-opacity', d => {
       if ((d.status || 'unknown') === 'unknown') return 0.22;
@@ -1971,7 +1991,7 @@ function renderGlobalView() {
       if (s === 'mastered')   return '#30D158';
       if (s === 'learning')   return '#FF9F0A';
       if (s === 'needs_work') return '#FF453A';
-      return d.color || '#607D8B';
+      return graphNodeColor(d);
     })
     .attr('stroke-width', 1.5);
 
@@ -1996,8 +2016,8 @@ function renderGlobalView() {
   dirSel.append('title').text(d => entityName(d) || '');
   dirSel.append('circle')
     .attr('r', DIR_R_G)
-    .attr('fill', d => d.color).attr('fill-opacity', 0.88)
-    .attr('stroke', d => d.color).attr('stroke-width', 1.8)
+    .attr('fill', d => graphNodeColor(d)).attr('fill-opacity', 0.86)
+    .attr('stroke', d => graphNodeColor(d)).attr('stroke-width', 1.8)
     .attr('class', 'node-circle');
   dirSel.append('path').attr('d', d => makeRingPath(d, DIR_R_G))
     .attr('fill', '#30D158').attr('opacity', 0.9);
@@ -2019,7 +2039,12 @@ function renderGlobalView() {
 function clearActivePathStep() {
   State.activePathStep = null;
   document.querySelectorAll('.path-step.active').forEach(el => el.classList.remove('active'));
-  if (g) g.selectAll('.path-highlight').remove();
+  if (g) {
+    g.selectAll('.path-highlight, .path-route-ring').remove();
+    g.selectAll('.g-path-overlay').remove();
+    g.selectAll('.node-g').classed('path-node-active path-node-in-route', false);
+  }
+  document.getElementById('graph-svg')?.parentElement?.classList.remove('graph-path-mode');
 }
 
 // 切换全局/领域/路径/目录视图
@@ -2043,7 +2068,7 @@ function setGraphView(view) {
   if (view !== 'path') clearActivePathStep();
 
   if (view === 'path') {
-    // 路径视图：图谱显示全局总览（若尚未渲染则先渲染），侧栏显示路径
+    // 路径视图：右侧图谱必须随路径切换联动，而不是停留在普通总览。
     if (legend) legend.classList.add('hidden');
     if (nodeInfo) nodeInfo.classList.add('hidden');
     if (pathPanel) pathPanel.classList.remove('hidden');
@@ -2051,20 +2076,20 @@ function setGraphView(view) {
     if (gb) gb.classList.remove('active');
     if (db) db.classList.remove('active');
     if (pb) pb.classList.add('active');
-    updateLayerDots(0);   // hide layer dots in path view
-    // 仅在没有全局仿真数据时才重新渲染
-    if (!State.simulationNodes) {
-      renderGlobalView();
-      State.graphView = 'path';
-    }
+    renderGlobalView();
+    State.graphView = 'path';
+    updateLayerDots(0, getLang() === 'en' ? 'Path' : '路径');
+    const firstStep = State.activePathStep || getSuggestedPathStepId(State.activePath);
+    State.activePathStep = firstStep;
     renderPathPanel();
+    window.setTimeout(() => doHighlight(firstStep), 520);
   } else if (view === 'dir') {
     // 目录视图：侧栏显示树形目录，图谱保持全局总览
     if (legend) legend.classList.add('hidden');
     if (nodeInfo) nodeInfo.classList.add('hidden');
     if (pathPanel) pathPanel.classList.add('hidden');
     if (dirPanel) dirPanel.classList.remove('hidden');
-    updateLayerDots(0);
+    updateLayerDots(0, getLang() === 'en' ? 'Directory' : '目录');
     if (!State.simulationNodes) {
       renderGlobalView();
       State.graphView = 'dir';
@@ -2072,6 +2097,7 @@ function setGraphView(view) {
     renderDirPanel();
   } else {
     // 切回图谱视图：恢复侧栏，清除高亮
+    document.getElementById('graph-svg')?.parentElement?.classList.remove('graph-path-mode');
     if (legend) legend.classList.remove('hidden');
     if (nodeInfo) nodeInfo.classList.remove('hidden');
     if (pathPanel) pathPanel.classList.add('hidden');
@@ -2165,17 +2191,34 @@ function renderPathPanel() {
   }
 }
 
+function getSuggestedPathStepId(intent = State.activePath) {
+  const path = LEARNING_PATHS[intent];
+  if (!path || !path.steps?.length) return null;
+  const topics = State.graphData?.nodes?.filter(n => n.type === 'topic') || [];
+  return path.steps.find(id => {
+    const node = topics.find(n => n.id === id);
+    return node && node.status !== 'mastered';
+  }) || path.steps[0];
+}
+
 function setActivePath(intent) {
   State.activePath = intent;
-  State.activePathStep = null;
+  State.activePathStep = getSuggestedPathStepId(intent);
   const ab = document.getElementById('btn-apply-path');
   const ub = document.getElementById('btn-understand-path');
   if (ab) ab.classList.toggle('active', intent === 'apply');
   if (ub) ub.classList.toggle('active', intent === 'understand');
-  if (g) g.selectAll('.path-highlight').remove();
-  const detailEl = document.getElementById('path-node-detail');
-  if (detailEl) detailEl.innerHTML = '';
   renderPathPanel();
+  if (State.graphView !== 'path') {
+    setGraphView('path');
+  } else {
+    const targetStep = State.activePathStep;
+    renderGlobalView();
+    State.graphView = 'path';
+    State.activePathStep = targetStep;
+    updateLayerDots(0, getLang() === 'en' ? 'Path' : '路径');
+    window.setTimeout(() => doHighlight(targetStep), 520);
+  }
 }
 
 // 在全局图谱中高亮路径步骤节点，并在侧栏展示详情
@@ -2193,29 +2236,60 @@ function highlightInGlobal(topicId) {
 }
 
 function doHighlight(topicId) {
-  // 更新步骤列表的 active 状态
+  if (!topicId || !g) return;
+  State.activePathStep = topicId;
+
   document.querySelectorAll('.path-step').forEach(el => {
     el.classList.toggle('active', el.dataset.id === topicId);
   });
 
-  // 把高亮圆环附加在节点的 <g> 内部（随仿真移动）
-  g.selectAll('.path-highlight').remove();
-  const nodeG = g.select(`[data-id="${topicId}"]`);
-  if (!nodeG.empty()) {
-    nodeG.append('circle')
-      .attr('class', 'path-highlight')
-      .attr('r', 20)
-      .attr('fill', 'none')
-      .attr('stroke', '#FFD700')
-      .attr('stroke-width', 2.5)
-      .attr('pointer-events', 'none')
-      .attr('opacity', 0)
-      .transition().duration(280).attr('opacity', 1);
-  }
+  renderPathOverlay(topicId);
 
-  // 侧栏显示节点详情
   const topicNode = State.graphData?.nodes.find(n => n.id === topicId && n.type === 'topic');
   if (topicNode) showPathNodeDetail(topicNode);
+}
+
+function renderPathOverlay(activeTopicId = State.activePathStep) {
+  if (!g || !State.graphData) return;
+  const path = LEARNING_PATHS[State.activePath];
+  if (!path) return;
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (wrap) wrap.classList.add('graph-path-mode');
+
+  const stepSet = new Set(path.steps);
+  g.selectAll('.g-path-overlay').remove();
+  g.selectAll('.path-highlight, .path-route-ring').remove();
+  g.selectAll('.node-g')
+    .classed('path-node-in-route', d => d && stepSet.has(d.id))
+    .classed('path-node-active', d => d && d.id === activeTopicId);
+
+  const positioned = path.steps.map((id, index) => {
+    const node = getRenderedNodeDatum(id);
+    return node && typeof node.x === 'number' && typeof node.y === 'number'
+      ? { ...node, stepIndex: index }
+      : null;
+  }).filter(Boolean);
+  if (!positioned.length) return;
+
+  const overlay = g.append('g').attr('class', 'g-path-overlay');
+  const pairs = [];
+  for (let i = 1; i < positioned.length; i++) pairs.push({ source: positioned[i - 1], target: positioned[i] });
+  overlay.selectAll('line')
+    .data(pairs)
+    .join('line')
+    .attr('class', 'path-route-line')
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+
+  positioned.forEach(item => {
+    const nodeG = g.select(`[data-id="${item.id}"]`);
+    if (nodeG.empty()) return;
+    nodeG.append('circle')
+      .attr('class', item.id === activeTopicId ? 'path-highlight' : 'path-route-ring')
+      .attr('r', item.id === activeTopicId ? 23 : 18)
+      .attr('fill', 'none')
+      .attr('pointer-events', 'none');
+  });
 }
 
 function showPathNodeDetail(d) {
@@ -2226,18 +2300,28 @@ function showPathNodeDetail(d) {
   const statusLabel = getStatusLabel(status, d.tested);
   const displayName = entityName(d);
   const displayNameAlt = getLang() === 'en' ? (d.name || '') : (d.name_en || '');
+  const path = LEARNING_PATHS[State.activePath];
+  const idx = path?.steps?.indexOf(d.id) ?? -1;
+  const prevId = idx > 0 ? path.steps[idx - 1] : '';
+  const nextId = idx >= 0 && idx < path.steps.length - 1 ? path.steps[idx + 1] : '';
   el.innerHTML = `
     <div class="path-detail-card">
+      <div class="path-detail-kicker">${idx >= 0 ? escHtml(`${idx + 1} / ${path.steps.length}`) : ''}</div>
       <div class="path-detail-name">${escHtml(displayName)}</div>
       ${displayNameAlt ? `<div class="path-detail-en">${escHtml(displayNameAlt)}</div>` : ''}
       <span class="node-status-badge ${statusClass}">${escHtml(statusLabel)}</span>
       ${d.description ? `<div class="path-detail-desc">${escHtml(d.description)}</div>` : ''}
+      <div class="path-detail-nav">
+        <button type="button" data-nav="prev" ${prevId ? '' : 'disabled'}>${getLang() === 'en' ? '← Previous' : '← 上一步'}</button>
+        <button type="button" data-nav="next" ${nextId ? '' : 'disabled'}>${getLang() === 'en' ? 'Next →' : '下一步 →'}</button>
+      </div>
       <button class="node-action-btn" data-action="quiz">${escHtml(t('btn.quiz_this_topic'))}</button>
     </div>
   `;
-  el.querySelector('[data-action="quiz"]').addEventListener('click', () => startTopicQuiz(d.id));
+  el.querySelector('[data-action="quiz"]')?.addEventListener('click', () => startTopicQuiz(d.id));
+  el.querySelector('[data-nav="prev"]')?.addEventListener('click', () => prevId && highlightInGlobal(prevId));
+  el.querySelector('[data-nav="next"]')?.addEventListener('click', () => nextId && highlightInGlobal(nextId));
 }
-
 // ============================================================
 // 目录视图
 // ============================================================
