@@ -13,6 +13,8 @@ if (typeof onLangChange === 'function') {
     if (typeof renderPathPanel      === 'function' && State.graphView === 'path') renderPathPanel();
     if (typeof renderDirPanel       === 'function' && State.graphView === 'dir')  renderDirPanel();
     if (typeof updateTopbarBadge    === 'function') updateTopbarBadge();
+    if (typeof renderLearningCockpit === 'function') renderLearningCockpit();
+    if (typeof updateThemeToggleLabel === 'function') updateThemeToggleLabel(document.documentElement.getAttribute('data-theme') || 'dark');
     if (State._lastProgressData) renderProgressHeatmap(State._lastProgressData);
     // Re-render quiz result views if visible
     if (State._lastDiagnosticResult && !document.getElementById('quiz-result-view').classList.contains('hidden')) {
@@ -47,6 +49,7 @@ const State = {
   filterArea: null,          // 图例点击筛选：null = 全部显示
   filterTag: null,           // 标签点击筛选：null = 全部显示
   searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
+  focusedNode: null,         // 当前聚焦的节点，用于 zoom/pan 时跟随更新浮动按钮
 
   _lastDiagnosticResult: null, // 最近一次诊断结果（供语言切换时重渲染）
   _lastDirectionResult: null,  // 最近一次方向测评结果
@@ -59,6 +62,8 @@ const State = {
   currentDirectionId: null,  // 当前方向测评的 direction id
   answeredCurrent: false,    // 当前题目是否已作答
 };
+
+window.State = State;
 
 // ============================================================
 // 学习路径定义（按意图分组）
@@ -103,6 +108,8 @@ const LEARNING_PATHS = {
   }
 };
 
+window.LEARNING_PATHS = LEARNING_PATHS;
+
 // ============================================================
 // 安全工具：HTML 实体转义，防止 XSS
 // ============================================================
@@ -124,6 +131,188 @@ function fetchWithTimeout(url, options = {}, ms = 8000) {
     .finally(() => clearTimeout(timer));
 }
 
+
+// ============================================================
+// PM 优化：本地埋点、首次引导、导出预览、上手清单
+// ============================================================
+
+const KG_EVENT_LIMIT = 500;
+
+function readJsonStorage(storage, key, fallback) {
+  try {
+    const raw = storage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) { return fallback; }
+}
+
+function writeJsonStorage(storage, key, value) {
+  try { storage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+
+function trackEvent(name, data = {}) {
+  const event = { name, data, at: new Date().toISOString(), ts: Date.now() };
+  const events = readJsonStorage(localStorage, 'kg_events', []);
+  events.push(event);
+  writeJsonStorage(localStorage, 'kg_events', events.slice(-KG_EVENT_LIMIT));
+  renderPrivacyPanel();
+}
+
+function getKgEvents() { return readJsonStorage(localStorage, 'kg_events', []); }
+
+function downloadUsageData() {
+  const payload = JSON.stringify({ exported_at: new Date().toISOString(), events: getKgEvents() }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'super-alignment-local-events.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  trackEvent('usage_data_exported');
+}
+
+function clearUsageData() {
+  if (!window.confirm(getLang() === 'en' ? 'Clear all local usage events?' : '清空所有本地使用事件？')) return;
+  try { localStorage.removeItem('kg_events'); } catch (_) {}
+  renderPrivacyPanel();
+  showToast(getLang() === 'en' ? 'Local usage data cleared' : '本地使用数据已清空');
+}
+
+function renderPrivacyPanel() {
+  const el = document.getElementById('privacy-events-summary');
+  if (!el) return;
+  const events = getKgEvents();
+  const counts = events.reduce((acc, e) => { acc[e.name] = (acc[e.name] || 0) + 1; return acc; }, {});
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, 6);
+  el.innerHTML = `<strong>${getLang() === 'en' ? 'Local events' : '本地事件'}</strong>：${events.length} ${getLang() === 'en' ? 'records' : '条'}${top.length ? `<div class="privacy-event-tags">${top.map(([k,v]) => `<span>${escHtml(k)} · ${v}</span>`).join('')}</div>` : ''}<p>${getLang() === 'en' ? 'They stay in localStorage and are only used for this browser experience.' : '这些数据只保存在当前浏览器 localStorage，用于本地体验与自查，不会上传。'}</p>`;
+}
+
+function setupIntroOverlay() {
+  const overlay = document.getElementById('intro-overlay');
+  if (!overlay) return;
+  const seen = localStorage.getItem('kg_seen_intro') === '1';
+  if (!seen) {
+    window.setTimeout(() => {
+      overlay.classList.remove('hidden');
+      trackEvent('intro_shown');
+    }, 60);
+  }
+  const closeIntro = (name) => {
+    localStorage.setItem('kg_seen_intro', '1');
+    overlay.classList.add('hidden');
+    trackEvent(name);
+    renderLearningCockpit();
+  };
+  document.getElementById('intro-quickstart')?.addEventListener('click', () => {
+    closeIntro('intro_quickstart_click');
+    startQuickDiagnostic();
+  });
+  document.getElementById('intro-browse')?.addEventListener('click', () => closeIntro('intro_browse_click'));
+}
+
+function getOnboardSteps() { return readJsonStorage(localStorage, 'kg_onboard_steps', {}); }
+function completeOnboardStep(step) {
+  const steps = getOnboardSteps();
+  if (steps[step]) return;
+  steps[step] = Date.now();
+  writeJsonStorage(localStorage, 'kg_onboard_steps', steps);
+  renderOnboardChecklist();
+  if (['node', 'quiz', 'export'].every(k => steps[k])) {
+    showToast(getLang() === 'en' ? 'You have completed the starter loop' : '已完成上手闭环：定位、学习、导出');
+  }
+}
+
+function getOnboardingMarkup() {
+  const isEn = getLang() === 'en';
+  return `<div class="node-info-empty" id="node-info-empty-msg">
+    <div class="onboard-title">${isEn ? '3-step starter loop' : '3 步上手 Super Alignment'}</div>
+    <div class="onboard-subtitle">${isEn ? 'This app is the map; your note tool is the destination.' : '这里是地图；你的笔记工具是目的地。'}</div>
+    <div class="onboard-checklist" id="onboard-checklist">
+      <div class="onboard-step" data-step="node"><span></span><strong>${isEn ? 'Click a node' : '单击一个节点'}</strong><em>${isEn ? 'Understand position and next actions' : '看懂主题位置与下一步动作'}</em></div>
+      <div class="onboard-step" data-step="quiz"><span></span><strong>${isEn ? 'Finish quick diagnostic' : '完成快速定位'}</strong><em>${isEn ? 'Make recommendations honest' : '让推荐从真实答题产生'}</em></div>
+      <div class="onboard-step" data-step="export"><span></span><strong>${isEn ? 'Export once' : '导出一次材料'}</strong><em>${isEn ? 'Move material to your own tools' : '回到你熟悉的笔记工具'}</em></div>
+    </div>
+  </div>`;
+}
+
+function renderOnboardChecklist() {
+  const list = document.getElementById('onboard-checklist');
+  if (!list) return;
+  const steps = getOnboardSteps();
+  list.querySelectorAll('.onboard-step').forEach(el => {
+    const done = Boolean(steps[el.dataset.step]);
+    el.classList.toggle('done', done);
+    const badge = el.querySelector('span');
+    if (badge) badge.textContent = done ? '✓' : '○';
+  });
+}
+
+function setupLegendMemory() {
+  const legend = document.querySelector('.graph-legend');
+  if (!legend) return;
+  const collapsed = localStorage.getItem('kg_legend_collapsed') === '1';
+  if (collapsed) legend.removeAttribute('open');
+  legend.addEventListener('toggle', () => {
+    localStorage.setItem('kg_legend_collapsed', legend.open ? '0' : '1');
+    trackEvent('legend_toggle', { open: legend.open });
+  });
+}
+
+function exportKindMeta(kind) {
+  const map = {
+    obsidian: { title: 'Obsidian Vault', desc: '保留 Markdown、wiki 链接和预配置，适合长期批注与沉淀。', items: ['全部主题正文', '知识点之间的 wiki 链接', '可直接打开的 Vault 结构'] },
+    anki: { title: 'Anki CSV', desc: '把核心知识点带进间隔复习流程，适合复习党。', items: ['主题问答卡片', '方向标签', '可导入 Anki 的 CSV'] },
+    markdown: { title: 'Markdown Zip', desc: '通用 Markdown 文件夹，适合 Notion / Logseq / 任何编辑器。', items: ['全部主题 Markdown', '按方向组织的文件夹', '不绑定任何平台'] },
+  };
+  return map[kind] || { title: kind, desc: '导出学习材料。', items: [] };
+}
+
+function showExportPreview(kind) {
+  const modal = document.getElementById('export-preview-modal');
+  const overlay = document.getElementById('export-modal-overlay');
+  const title = document.getElementById('export-preview-title');
+  const body = document.getElementById('export-preview-body');
+  const confirmBtn = document.getElementById('export-preview-confirm');
+  if (!modal || !overlay || !body || !confirmBtn) return doExport(kind);
+  const meta = exportKindMeta(kind);
+  title.textContent = `导出 ${meta.title}`;
+  body.innerHTML = `<p>${escHtml(meta.desc)}</p><div class="export-preview-list">${meta.items.map(i => `<span>✓ ${escHtml(i)}</span>`).join('')}</div><div class="export-preview-note">导出不会锁定你的内容；它只是把同一套知识源分发到你选择的工具。</div>`;
+  confirmBtn.onclick = () => doExport(kind);
+  overlay.classList.remove('hidden');
+  modal.classList.remove('hidden');
+  trackEvent('export_preview_shown', { kind });
+}
+
+function closeExportPreview() {
+  document.getElementById('export-preview-modal')?.classList.add('hidden');
+  document.getElementById('export-modal-overlay')?.classList.add('hidden');
+}
+
+function doExport(kind) {
+  trackEvent('export_start', { kind });
+  const fn = window.Export?.[kind];
+  if (typeof fn === 'function') {
+    fn();
+    closeExportPreview();
+    completeOnboardStep('export');
+    trackEvent('export_complete', { kind });
+    showToast(getLang() === 'en' ? 'Export started. Keep learning in your own tools.' : '已开始导出。继续在你熟悉的工具里沉淀。');
+    return;
+  }
+  closeExportPreview();
+  showToast(getLang() === 'en' ? 'Export is not available in this build' : '当前构建暂未接入导出能力');
+}
+
+function maybeShowExportMilestone(progress) {
+  const count = (progress?.mastered || 0) + (progress?.learning || 0);
+  const milestone = [30, 15, 5].find(n => count >= n);
+  if (!milestone) return;
+  const key = `kg_export_nudged_${milestone}`;
+  if (localStorage.getItem(key) === '1') return;
+  localStorage.setItem(key, '1');
+  showToast(getLang() === 'en' ? `You have ${count} active topics — consider exporting them.` : `你已有 ${count} 个学习过的主题，可以导出到笔记工具沉淀。`);
+}
+
 // ============================================================
 // Tab 切换
 // ============================================================
@@ -134,6 +323,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    trackEvent('tab_switch', { tab: btn.dataset.tab });
+    if (btn.dataset.tab === 'quiz') renderQuizDraftCard();
     if (btn.dataset.tab === 'progress') loadProgress();
     if (btn.dataset.tab === 'graph' && svg) {
       requestAnimationFrame(() => {
@@ -173,15 +364,15 @@ function getStatusClass(s, tested = false) {
 }
 
 function scoreColor(pct) {
-  if (pct >= 80) return '#3fb950';
-  if (pct >= 60) return '#d29922';
-  return '#f85149';
+  if (pct >= 80) return '#30D158';
+  if (pct >= 60) return '#FF9F0A';
+  return '#FF453A';
 }
 
 function masteryColor(baseColor, mastered, total) {
   if (!total || !mastered) return baseColor;
   const pct = Math.min(mastered / total, 1);
-  return d3.interpolateRgb(baseColor, '#3fb950')(pct * 0.55);
+  return d3.interpolateRgb(baseColor, '#30D158')(pct * 0.55);
 }
 
 // ============================================================
@@ -217,7 +408,12 @@ async function init() {
 
     requestAnimationFrame(() => initGraph());
     renderDirectionsGrid();
+    renderOnboardChecklist();
+    setupLegendMemory();
+    setupIntroOverlay();
+    renderQuizDraftCard();
     await updateTopbarBadge();
+    await renderLearningCockpit();
   } catch (e) {
     console.error('Init error:', e);
   }
@@ -228,14 +424,132 @@ async function updateTopbarBadge() {
     const p = await fetchWithTimeout('/api/progress').then(r => r.json());
     const badge = document.getElementById('topbar-badge');
     badge.textContent = '';
-    badge.append(t('badge.mastered') + ' ');
     const strong = document.createElement('strong');
     strong.textContent = p.mastered_percent + '%';
-    badge.append(strong, ` · ${p.mastered}/${p.total}`);
+    if (getLang() === 'en') {
+      badge.append(strong, ` (${p.mastered}/${p.total})`);
+    } else {
+      badge.append(t('badge.mastered') + ' ', strong, ` · ${p.mastered}/${p.total}`);
+    }
+    badge.style.visibility = 'visible';
     return p;
   } catch (e) {
     console.warn('Progress badge update failed:', e);
   }
+}
+
+async function renderLearningCockpit() {
+  const metrics = document.getElementById('cockpit-metrics');
+  const nextEl = document.getElementById('cockpit-next');
+  if (!metrics || !nextEl) return;
+  try {
+    const progress = await fetchWithTimeout('/api/progress').then(r => r.json());
+    maybeShowExportMilestone(progress);
+    const testedIds = readJsonStorage(localStorage, 'kg_tested', []);
+    const dismissed = new Set(readJsonStorage(localStorage, 'kg_dismissed_recs', []));
+    const recsRaw = testedIds.length > 0
+      ? await fetchWithTimeout('/api/recommendations?top_n=5&require_tested=true').then(r => r.json()).catch(() => [])
+      : [];
+    const recs = (Array.isArray(recsRaw) ? recsRaw : []).filter(r => r && !dismissed.has(r.id));
+    const mastered = progress.mastered || 0;
+    const total = progress.total || 0;
+    const pct = progress.mastered_percent || 0;
+    const needs = progress.needs_work || 0;
+    const learning = progress.learning || 0;
+    const unknown = progress.unknown || 0;
+
+    metrics._statsData = { mastered, total, pct, needs, learning, unknown };
+
+    const metricEl = document.getElementById('cockpit-metric-el');
+    if (metricEl) {
+      metricEl.innerHTML = `<span>${getLang() === 'en' ? 'Mastery' : '掌握进度'}</span><strong>${pct}%</strong>`;
+      metricEl.onclick = () => showCockpitStatsPopup(metricEl, metrics._statsData);
+      metricEl.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showCockpitStatsPopup(metricEl, metrics._statsData); }
+      };
+    }
+
+    const rec = recs[0] || null;
+    if (rec) {
+      const name = (getLang() === 'en' && rec.name_en) ? rec.name_en : rec.name;
+      const reason = rec.reason || buildClientRecommendationReason(rec);
+      nextEl.innerHTML = `
+        <span>${getLang() === 'en' ? 'For you' : '为你推荐'}</span>
+        <button class="cockpit-rec-title" type="button" data-action="start" data-topic-id="${escHtml(rec.id)}">${escHtml(name)}</button>
+        <em class="cockpit-rec-reason">${escHtml(reason)}</em>
+        <div class="cockpit-rec-actions">
+          <button type="button" class="cockpit-rec-primary" data-action="start">${getLang() === 'en' ? 'Start learning →' : '开始学习 →'}</button>
+          <button type="button" class="cockpit-rec-dismiss" data-action="dismiss">${getLang() === 'en' ? 'Skip' : '跳过这条'}</button>
+        </div>`;
+      trackEvent('rec_shown', { id: rec.id, surface: 'cockpit' });
+      nextEl.querySelectorAll('[data-action="start"]').forEach(btn => btn.addEventListener('click', () => {
+        trackEvent('rec_click', { id: rec.id, surface: 'cockpit' });
+        switchToTab('graph');
+        setTimeout(() => {
+          navigateToNode('topic', rec.id);
+          showRecommendationToast();
+        }, 80);
+      }));
+      nextEl.querySelector('[data-action="dismiss"]')?.addEventListener('click', () => {
+        const list = readJsonStorage(localStorage, 'kg_dismissed_recs', []);
+        if (!list.includes(rec.id)) list.push(rec.id);
+        writeJsonStorage(localStorage, 'kg_dismissed_recs', list);
+        trackEvent('rec_dismiss', { id: rec.id, surface: 'cockpit' });
+        renderLearningCockpit();
+      });
+    } else {
+      nextEl.innerHTML = `<span>${t('cockpit.next_label')}</span>
+        <em>${getLang() === 'en' ? 'Run the 5-question quick diagnostic to unlock honest recommendations.' : '完成 5 题快速定位后，这里会出现基于真实答题的推荐。'}</em>
+        <button type="button" class="cockpit-inline-cta" onclick="startQuickDiagnostic()">${getLang() === 'en' ? 'Quick diagnostic →' : '开始快速定位 →'}</button>`;
+    }
+  } catch (e) {
+    console.warn('Cockpit render failed:', e);
+  }
+}
+
+function buildClientRecommendationReason(rec) {
+  const topic = (State.graphData?.nodes || []).find(n => n.id === rec.id) || rec;
+  const dir = (State.directions || []).find(d => d.id === topic.direction);
+  const bits = [];
+  if (dir) bits.push(getLang() === 'en' ? `Belongs to ${dir.name_en || dir.name}.` : `属于「${dir.name}」方向。`);
+  if ((topic.importance || 0) >= 4) bits.push(getLang() === 'en' ? 'High-importance topic.' : '这是高重要度主题。');
+  if ((topic.difficulty || 3) <= 2) bits.push(getLang() === 'en' ? 'Low entry difficulty.' : '入门难度较低，适合从这里开始。');
+  return bits.join(getLang() === 'en' ? ' ' : '；') || (getLang() === 'en' ? 'Recommended from your diagnostic and learning status.' : '基于你的测评与学习状态推荐。');
+}
+
+function showRecommendationToast() {
+  let el = document.getElementById('rec-context-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'rec-context-toast';
+    el.className = 'rec-context-toast';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `${getLang() === 'en' ? 'Opened from recommendation' : '从推荐进入此主题'} · <button type="button">${getLang() === 'en' ? 'Back to global' : '返回全局总览'} ←</button>`;
+  el.querySelector('button').onclick = () => { setGraphView('global'); el.classList.remove('show'); };
+  el.classList.add('show');
+  clearTimeout(showRecommendationToast._timer);
+  showRecommendationToast._timer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function showCockpitStatsPopup(anchor, data) {
+  document.getElementById('cockpit-stats-popup')?.remove();
+  const popup = document.createElement('div');
+  popup.id = 'cockpit-stats-popup';
+  popup.className = 'cockpit-stats-popup';
+  const isEn = getLang() === 'en';
+  popup.innerHTML = `
+    <div class="csp-row"><span class="csp-dot" style="background:#30D158"></span><span>${isEn ? 'Mastered' : '已掌握'}</span><strong>${data.mastered}</strong></div>
+    <div class="csp-row"><span class="csp-dot" style="background:#FF9F0A"></span><span>${isEn ? 'Learning' : '学习中'}</span><strong>${data.learning}</strong></div>
+    <div class="csp-row"><span class="csp-dot" style="background:#FF453A"></span><span>${isEn ? 'Needs work' : '待加强'}</span><strong>${data.needs}</strong></div>
+    <div class="csp-row"><span class="csp-dot" style="background:#3A3A3C;border:1px solid #666"></span><span>${isEn ? 'Not tested' : '未测评'}</span><strong>${data.unknown}</strong></div>
+  `;
+  document.body.appendChild(popup);
+  const rect = anchor.getBoundingClientRect();
+  popup.style.top = `${rect.bottom + 6}px`;
+  popup.style.left = `${rect.left}px`;
+  const close = e => { if (!popup.contains(e.target) && e.target !== anchor) { popup.remove(); document.removeEventListener('click', close, true); } };
+  setTimeout(() => document.addEventListener('click', close, true), 0);
 }
 
 async function refreshGraphData() {
@@ -263,6 +577,8 @@ function switchToTab(tabName) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById(`panel-${tabName}`).classList.add('active');
+  trackEvent('tab_switch', { tab: tabName, programmatic: true });
+  if (tabName === 'quiz') renderQuizDraftCard();
   if (tabName === 'progress') loadProgress();
   if (tabName === 'graph' && svg) {
     requestAnimationFrame(() => {
@@ -306,9 +622,18 @@ function initGraph() {
 
   zoomBehavior = d3.zoom()
     .scaleExtent([0.2, 3])
-    .on('zoom', e => g.attr('transform', e.transform));
+    .on('zoom', e => {
+      g.attr('transform', e.transform);
+      if (State.focusedNode) {
+        const menu = document.getElementById('node-action-fan');
+        const wrap = document.getElementById('graph-svg')?.parentElement;
+        const point = getFocusedNodeScreenPoint(State.focusedNode);
+        if (menu && wrap && point) positionNodeActionFan(menu, wrap, point);
+      }
+    });
 
   svg.call(zoomBehavior);
+  svg.on('click', () => clearNodeFocus());
   g = svg.append('g');
 
   renderGlobalView();
@@ -331,6 +656,7 @@ function initGraph() {
 }
 
 function clearGraph() {
+  clearNodeFocus({ keepCard: true });
   if (simulation) simulation.stop();
   g.selectAll('*').remove();
 }
@@ -362,6 +688,7 @@ function renderAreaLevel() {
   const node = g.selectAll('.node-g')
     .data(nodes).join('g')
     .attr('class', 'node-g')
+    .attr('data-id', d => d.id)
     .style('cursor', 'pointer')
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); expandArea(d.id); });
@@ -376,7 +703,7 @@ function renderAreaLevel() {
 
   node.append('path')
     .attr('d', d => makeRingPath(d, AREA_R))
-    .attr('fill', '#3fb950').attr('opacity', 0.9);
+    .attr('fill', '#30D158').attr('opacity', 0.9);
 
   node.append('text').attr('dy', '-6')
     .attr('class', 'node-label node-label-area').style('font-size', '18px')
@@ -428,6 +755,7 @@ function expandArea(areaId) {
   const node = g.selectAll('.node-g')
     .data(allNodes).join('g')
     .attr('class', 'node-g')
+    .attr('data-id', d => d.id)
     .style('cursor', d => d.type === 'direction' ? 'pointer' : 'default')
     .on('click', (e, d) => {
       e.stopPropagation();
@@ -446,7 +774,7 @@ function expandArea(areaId) {
 
   node.append('path')
     .attr('d', d => makeRingPath(d, d.type === 'area' ? AREA_R : DIR_R))
-    .attr('fill', '#3fb950').attr('opacity', 0.9);
+    .attr('fill', '#30D158').attr('opacity', 0.9);
 
   node.append('text')
     .attr('dy', d => d.type === 'area' ? '-6' : '4')
@@ -519,6 +847,7 @@ function expandDirection(dirId) {
   const node = g.selectAll('.node-g')
     .data(allNodes).join('g')
     .attr('class', 'node-g')
+    .attr('data-id', d => d.id)
     .style('cursor', 'pointer')
     .on('click', (e, d) => {
       e.stopPropagation();
@@ -531,19 +860,22 @@ function expandDirection(dirId) {
     .attr('fill', d => {
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
-      if (s === 'mastered')   return '#3fb950';
-      if (s === 'learning')   return '#d29922';
-      if (s === 'needs_work') return '#f85149';
-      return '#4A4A6A'; // 未测评：中性深色
+      if (s === 'mastered')   return '#30D158';
+      if (s === 'learning')   return '#FF9F0A';
+      if (s === 'needs_work') return '#FF453A';
+      return d.color || '#607D8B'; // unknown: classification color
     })
-    .attr('fill-opacity', d => d.type === 'direction' ? 0.9 : 0.85)
+    .attr('fill-opacity', d => {
+      if (d.type === 'direction') return 0.9;
+      return (d.status || 'unknown') === 'unknown' ? 0.22 : 0.88;
+    })
     .attr('stroke', d => {
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
-      if (s === 'mastered')   return '#3fb950';
-      if (s === 'learning')   return '#d29922';
-      if (s === 'needs_work') return '#f85149';
-      return d.color; // 未测评用领域色描边，保留分类感
+      if (s === 'mastered')   return '#30D158';
+      if (s === 'learning')   return '#FF9F0A';
+      if (s === 'needs_work') return '#FF453A';
+      return d.color || '#607D8B';
     })
     .attr('stroke-width', d => d.type === 'direction' ? 2 : 1.5)
     .attr('class', 'node-circle');
@@ -552,7 +884,7 @@ function expandDirection(dirId) {
   node.filter(d => d.type === 'direction')
     .append('path')
     .attr('d', d => makeRingPath(d, DIR_R))
-    .attr('fill', '#3fb950').attr('opacity', 0.9);
+    .attr('fill', '#30D158').attr('opacity', 0.9);
 
   node.append('text')
     .attr('dy', d => d.type === 'direction' ? '4' : '20')
@@ -574,8 +906,8 @@ function expandDirection(dirId) {
 }
 
 function resetToAreas() {
-  document.getElementById('node-info-panel').innerHTML =
-    `<div class="node-info-empty">${t('node.empty')}<br><br><strong>${t('node.hint.click')}</strong>：${t('node.hint.click.desc')}<br><strong>${t('node.hint.dblclick')}</strong>：${t('node.hint.dblclick.desc')}<br><strong>${t('node.hint.legend')}</strong>：${t('node.hint.legend.desc')}</div>`;
+  const fc = document.getElementById('node-float-card');
+  if (fc) fc.classList.add('hidden');
   if (State.graphView === 'global') {
     renderGlobalView();
   } else {
@@ -583,25 +915,177 @@ function resetToAreas() {
   }
 }
 
-function showNodeInfo(d) {
-  const panel = document.getElementById('node-info-panel');
-  if (State.graphView !== 'path') {
-    panel.classList.remove('hidden');
-    document.getElementById('path-panel').classList.add('hidden');
+function clearNodeFocus(options = {}) {
+  State.focusedNode = null;
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (wrap) wrap.classList.remove('graph-focus-mode');
+  if (g) {
+    g.selectAll('.node-g').classed('is-selected', false);
+    g.selectAll('.link-line, .link-prereq').classed('is-focus-link', false);
   }
+  const menu = document.getElementById('node-action-fan');
+  if (menu) menu.classList.remove('show', 'is-ready');
+  const pulse = document.getElementById('node-focus-pulse');
+  if (pulse) pulse.classList.remove('show');
+  if (!options.keepCard) {
+    const fc = document.getElementById('node-float-card');
+    if (fc) fc.classList.add('hidden');
+  }
+}
+
+function getRenderedNodeDatum(id) {
+  let found = null;
+  if (!g || !id) return null;
+  g.selectAll('.node-g').each(n => {
+    if (!found && n && n.id === id) found = n;
+  });
+  return found;
+}
+
+function focusGraphNode(d) {
+  if (!d || !g) return;
+  const focusDatum = (typeof d.x === 'number' && typeof d.y === 'number')
+    ? d
+    : (getRenderedNodeDatum(d.id) || d);
+  State.focusedNode = focusDatum;
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (wrap) wrap.classList.add('graph-focus-mode');
+  g.selectAll('.node-g').classed('is-selected', n => n && n.id === focusDatum.id);
+  g.selectAll('.link-line, .link-prereq').classed('is-focus-link', edge => {
+    const sid = endpointId(edge, 'source');
+    const tid = endpointId(edge, 'target');
+    return sid === focusDatum.id || tid === focusDatum.id;
+  });
+  showNodeActionFan(focusDatum);
+}
+
+function getFocusedNodeScreenPoint(d) {
+  if (!d || typeof d.x !== 'number' || typeof d.y !== 'number' || !svg) return null;
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  if (!wrap) return null;
+  const transform = d3.zoomTransform(svg.node());
+  const [tx, ty] = transform.apply([d.x, d.y]);
+  return { x: tx, y: ty };
+}
+
+function endpointId(edge, side) {
+  const endpoint = edge?.[side];
+  return typeof endpoint === 'object' ? endpoint?.id : endpoint;
+}
+
+function positionNodeActionFan(menu, wrap, point) {
+  const pad = 78;
+  const x = Math.max(pad, Math.min(wrap.clientWidth - pad, point.x));
+  const y = Math.max(pad, Math.min(wrap.clientHeight - pad, point.y));
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  wrap.style.setProperty('--focus-x', `${x}px`);
+  wrap.style.setProperty('--focus-y', `${y}px`);
+
+  let pulse = document.getElementById('node-focus-pulse');
+  if (!pulse) {
+    pulse = document.createElement('div');
+    pulse.id = 'node-focus-pulse';
+    pulse.className = 'node-focus-pulse';
+    wrap.appendChild(pulse);
+  }
+  pulse.style.left = `${x}px`;
+  pulse.style.top = `${y}px`;
+  pulse.classList.add('show');
+}
+
+function showNodeActionFan(d) {
+  const wrap = document.getElementById('graph-svg')?.parentElement;
+  const point = getFocusedNodeScreenPoint(d);
+  if (!wrap || !point) return;
+
+  let menu = document.getElementById('node-action-fan');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'node-action-fan';
+    menu.className = 'node-action-fan';
+    wrap.appendChild(menu);
+  }
+
+  const actions = getNodeFanActions(d);
+  menu.innerHTML = actions.map((a, i) => {
+    const start = actions.length === 2 ? -35 : -110;
+    const spread = actions.length === 2 ? 70 : 220;
+    const angle = (start + (actions.length === 1 ? 0 : spread / (actions.length - 1) * i)) * Math.PI / 180;
+    const radius = d.type === 'topic' ? 76 : 68;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    return `
+      <button type="button" class="fan-action fan-${escHtml(a.kind || 'neutral')}" data-action="${escHtml(a.action)}" style="--i:${i};--x:${x.toFixed(1)}px;--y:${y.toFixed(1)}px" title="${escHtml(a.label)}">
+        <span>${escHtml(a.icon)}</span><em>${escHtml(a.label)}</em>
+      </button>
+    `;
+  }).join('');
+
+  positionNodeActionFan(menu, wrap, point);
+  menu.classList.remove('show', 'is-ready');
+  void menu.offsetWidth;
+  menu.classList.add('show');
+  window.setTimeout(() => menu.classList.add('is-ready'), 180);
+
+  menu.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      handleNodeFanAction(d, btn.dataset.action);
+    });
+  });
+}
+
+function getNodeFanActions(d) {
+  const isEn = getLang() === 'en';
+  if (d.type === 'topic') {
+    return [
+      { action: 'quiz-topic', icon: '▶', label: isEn ? 'Quiz' : '测评', kind: 'primary' },
+      { action: 'learning',   icon: '…',  label: isEn ? 'Learning' : '学习中', kind: 'warning' },
+      { action: 'mastered',   icon: '✓',  label: isEn ? 'Mastered' : '已掌握', kind: 'success' },
+      { action: 'copy-md',    icon: 'MD', label: isEn ? 'Copy MD' : '复制MD', kind: 'neutral' },
+    ];
+  }
+  if (d.type === 'direction') {
+    return [
+      { action: 'quiz-direction', icon: '▶', label: isEn ? 'Quiz' : '测评', kind: 'primary' },
+      { action: 'view-topics',    icon: '⊞',  label: isEn ? 'Topics' : '展开', kind: 'neutral' },
+    ];
+  }
+  return [
+    { action: 'browse-area', icon: '⊞', label: isEn ? 'Browse' : '浏览', kind: 'primary' },
+    { action: 'diagnostic',  icon: '▶', label: isEn ? 'Diagnose' : '诊断', kind: 'success' },
+  ];
+}
+
+function handleNodeFanAction(d, action) {
+  switch (action) {
+    case 'quiz-topic':     startTopicQuiz(d.id); break;
+    case 'copy-md':        copyTopicMarkdown(d.id); break;
+    case 'learning':       updateTopicStatusFromCard(d.id, 'learning'); break;
+    case 'mastered':       updateTopicStatusFromCard(d.id, 'mastered'); break;
+    case 'view-topics':    setGraphView('domain'); setTimeout(() => expandDirection(d.id), 50); break;
+    case 'quiz-direction': startDirectionQuizFromGraph(d.id); break;
+    case 'browse-area':    setGraphView('domain'); setTimeout(() => expandArea(d.id), 50); break;
+    case 'diagnostic':     switchToTab('quiz'); break;
+  }
+}
+
+function showNodeInfo(d) {
+  completeOnboardStep('node');
+  trackEvent('node_click', { id: d?.id, type: d?.type });
+  focusGraphNode(d);
+
+  const floatCard = document.getElementById('node-float-card');
+  const nfcBody = document.getElementById('nfc-body');
+  if (!floatCard || !nfcBody) return;
+
+  floatCard.style.borderTopColor = d.color || 'var(--border)';
 
   const card = document.createElement('div');
   card.className = 'node-info-card';
 
-  // Domain color bar
-  if (d.color) {
-    const bar = document.createElement('div');
-    bar.className = 'node-color-bar';
-    bar.style.background = d.color;
-    card.appendChild(bar);
-  }
-
-  // Breadcrumb path (area > direction for topics; area for directions)
+  // Breadcrumb
   if (d.type === 'topic' || d.type === 'direction') {
     const allNodes = State.graphData?.nodes || [];
     const areaNode = allNodes.find(n => n.id === d.area && n.type === 'area');
@@ -616,10 +1100,10 @@ function showNodeInfo(d) {
     if (d.type === 'topic') {
       const dirNode = allNodes.find(n => n.id === d.direction && n.type === 'direction');
       if (dirNode) {
-        const sepEl = document.createElement('span');
-        sepEl.className = 'crumb-sep';
-        sepEl.textContent = ' › ';
-        crumbEl.appendChild(sepEl);
+        const sep = document.createElement('span');
+        sep.className = 'crumb-sep';
+        sep.textContent = ' › ';
+        crumbEl.appendChild(sep);
         const dirSpan = document.createElement('span');
         dirSpan.textContent = entityName(dirNode);
         crumbEl.appendChild(dirSpan);
@@ -628,19 +1112,17 @@ function showNodeInfo(d) {
     if (crumbEl.children.length) card.appendChild(crumbEl);
   }
 
-  // Type label
+  // Type + Name
   const typeEl = document.createElement('div');
   typeEl.className = 'node-info-type';
   typeEl.textContent = t('type.' + d.type) || d.type;
   card.appendChild(typeEl);
 
-  // Name
   const nameEl = document.createElement('div');
   nameEl.className = 'node-info-name';
   nameEl.textContent = entityName(d);
   card.appendChild(nameEl);
 
-  // Alt name
   const altName = getLang() === 'en' ? (d.name || '') : (d.name_en || '');
   if (altName) {
     const altEl = document.createElement('div');
@@ -658,29 +1140,6 @@ function showNodeInfo(d) {
   }
 
   if (d.type === 'topic') {
-    // Difficulty + Importance stars
-    const diff = Math.max(1, Math.min(5, d.difficulty || 3));
-    const imp  = Math.max(1, Math.min(5, d.importance || 3));
-    const metaRow = document.createElement('div');
-    metaRow.className = 'node-meta-row';
-    const mkStars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
-    const diffEl = document.createElement('span');
-    diffEl.className = 'node-meta-item';
-    diffEl.innerHTML = `<span class="meta-label">${t('meta.difficulty')}</span> <span class="meta-stars">${mkStars(diff)}</span>`;
-    const impEl = document.createElement('span');
-    impEl.className = 'node-meta-item';
-    impEl.innerHTML = `<span class="meta-label">${t('meta.importance')}</span> <span class="meta-stars">${mkStars(imp)}</span>`;
-    const audienceLabel = diff <= 2
-      ? t('audience.entry')
-      : diff >= 4 ? t('audience.technical') : t('audience.general');
-    const audEl = document.createElement('span');
-    audEl.className = 'node-meta-item node-audience-badge';
-    audEl.textContent = audienceLabel;
-    metaRow.appendChild(diffEl);
-    metaRow.appendChild(impEl);
-    metaRow.appendChild(audEl);
-    card.appendChild(metaRow);
-
     // Status badge
     const status = d.status || 'unknown';
     const badgeEl = document.createElement('span');
@@ -688,7 +1147,23 @@ function showNodeInfo(d) {
     badgeEl.textContent = getStatusLabel(status, d.tested);
     card.appendChild(badgeEl);
 
-    // Tags — clickable to filter graph by tag
+    // Difficulty + Importance
+    const diff = Math.max(1, Math.min(5, d.difficulty || 3));
+    const imp  = Math.max(1, Math.min(5, d.importance || 3));
+    const mkStars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+    const metaRow = document.createElement('div');
+    metaRow.className = 'node-meta-row';
+    const diffEl = document.createElement('span');
+    diffEl.className = 'node-meta-item';
+    diffEl.innerHTML = `<span class="meta-label">${t('meta.difficulty')}</span> <span class="meta-stars">${mkStars(diff)}</span>`;
+    const impEl = document.createElement('span');
+    impEl.className = 'node-meta-item';
+    impEl.innerHTML = `<span class="meta-label">${t('meta.importance')}</span> <span class="meta-stars">${mkStars(imp)}</span>`;
+    metaRow.appendChild(diffEl);
+    metaRow.appendChild(impEl);
+    card.appendChild(metaRow);
+
+    // Tags
     if (d.tags && d.tags.length > 0) {
       const tagsEl = document.createElement('div');
       tagsEl.className = 'node-tags';
@@ -697,7 +1172,7 @@ function showNodeInfo(d) {
         const isActive = State.filterTag === tag;
         chip.className = 'node-tag-chip' + (isActive ? ' node-tag-chip-active' : '');
         chip.textContent = tag;
-        chip.title = isActive ? '点击取消筛选' : '点击在图谱中筛选同标签节点';
+        chip.title = isActive ? '点击取消筛选' : '点击筛选同标签节点';
         chip.style.cursor = 'pointer';
         chip.addEventListener('click', () => filterByTag(tag));
         tagsEl.appendChild(chip);
@@ -705,19 +1180,17 @@ function showNodeInfo(d) {
       card.appendChild(tagsEl);
     }
 
-    // Prerequisite + dependent chain
+    // Prerequisites / leads-to
     const allLinks = State.graphData?.links || [];
     const allNodes = State.graphData?.nodes || [];
     const nodeById = id => allNodes.find(n => n.id === id);
     const resolveId = v => typeof v === 'object' ? v.id : v;
-
     const prereqIds = allLinks
       .filter(l => l.type === 'prerequisite' && resolveId(l.target) === d.id)
       .map(l => resolveId(l.source));
     const dependIds = allLinks
       .filter(l => l.type === 'prerequisite' && resolveId(l.source) === d.id)
       .map(l => resolveId(l.target));
-
     const mkChain = (ids, titleKey) => {
       if (!ids.length) return;
       const sec = document.createElement('div');
@@ -726,7 +1199,7 @@ function showNodeInfo(d) {
       title.className = 'node-chain-title';
       title.textContent = t(titleKey);
       sec.appendChild(title);
-      ids.slice(0, 5).forEach(nid => {
+      ids.slice(0, 4).forEach(nid => {
         const n = nodeById(nid);
         const item = document.createElement('div');
         item.className = 'node-chain-item';
@@ -734,10 +1207,10 @@ function showNodeInfo(d) {
         item.addEventListener('click', () => navigateToNode('topic', nid));
         sec.appendChild(item);
       });
-      if (ids.length > 5) {
+      if (ids.length > 4) {
         const more = document.createElement('div');
         more.className = 'node-chain-more';
-        more.textContent = `+${ids.length - 5}`;
+        more.textContent = `+${ids.length - 4}`;
         sec.appendChild(more);
       }
       card.appendChild(sec);
@@ -745,56 +1218,21 @@ function showNodeInfo(d) {
     mkChain(prereqIds, 'node.prerequisites');
     mkChain(dependIds, 'node.leads_to');
 
-    // Action buttons
-    const parentDir = (State.graphData?.nodes || []).find(n => n.id === d.direction && n.type === 'direction');
-    const dirTopicCount = parentDir ? (parentDir.total || parentDir.topic_count || 0) : 0;
-    _addBtn(card, 'node-action-btn', 'quiz-topic', t('btn.quiz_this_topic'));
-    _addBtn(card, 'node-action-btn node-secondary-btn', 'quiz', t('btn.quiz_topic', {n: dirTopicCount * 3}));
-    if (State.graphView === 'global') _addBtn(card, 'node-action-btn node-expand-btn', 'navigate', t('btn.locate'));
-
   } else if (d.type === 'direction') {
     const countEl = document.createElement('div');
-    countEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:10px;';
+    countEl.className = 'node-info-count';
     countEl.textContent = t('node.topics_in', {n: d.topic_count || d.total || 0});
     card.appendChild(countEl);
-    const dirQCount = (d.topic_count || d.total || 0) * 3;
-    _addBtn(card, 'node-action-btn', 'dir-quiz', t('btn.quiz_dir', {n: dirQCount}));
-    const viewAction = State.graphView === 'global' ? 'view-dir-global' : 'expand-dir';
-    _addBtn(card, 'node-action-btn node-expand-btn', viewAction, t(State.graphView === 'global' ? 'btn.view_topics' : 'btn.expand_dir'));
 
   } else if (d.type === 'area') {
     const countEl = document.createElement('div');
-    countEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:10px;';
+    countEl.className = 'node-info-count';
     countEl.textContent = t('node.dirs_in', {n: d.direction_count || 3});
     card.appendChild(countEl);
-    const viewAction = State.graphView === 'global' ? 'view-area-global' : 'expand-area';
-    _addBtn(card, 'node-action-btn node-expand-btn', viewAction, t(State.graphView === 'global' ? 'btn.browse_area' : 'btn.expand_area'));
   }
 
-  // Event delegation for data-action buttons
-  card.addEventListener('click', e => {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    switch (btn.dataset.action) {
-      case 'quiz-topic':       startTopicQuiz(d.id); break;
-      case 'quiz':             startDirectionQuizFromGraph(d.direction); break;
-      case 'navigate':         navigateToNode('topic', d.id); break;
-      case 'dir-quiz':         startDirectionQuizFromGraph(d.id); break;
-      case 'view-dir-global':  setGraphView('domain'); setTimeout(() => expandDirection(d.id), 50); break;
-      case 'expand-dir':       expandDirection(d.id); break;
-      case 'view-area-global': setGraphView('domain'); setTimeout(() => expandArea(d.id), 50); break;
-      case 'expand-area':      expandArea(d.id); break;
-    }
-  });
-
-  // Course explore button
-  const courseBtn = document.createElement('button');
-  courseBtn.className = 'btn-course-explore';
-  courseBtn.textContent = t('btn.course');
-  courseBtn.addEventListener('click', () => openCourseExplore(d.type, d.id, entityName(d)));
-  card.appendChild(courseBtn);
-
-  panel.replaceChildren(card);
+  nfcBody.replaceChildren(card);
+  floatCard.classList.remove('hidden');
 }
 
 function _addBtn(parent, cls, action, label) {
@@ -803,6 +1241,108 @@ function _addBtn(parent, cls, action, label) {
   btn.dataset.action = action;
   btn.textContent = label;
   parent.appendChild(btn);
+}
+
+function getTopicFull(topicId) {
+  return window.__DATA__?.topics_full?.[topicId] || null;
+}
+
+function appendTopicTaskPanel(card, d) {
+  const full = getTopicFull(d.id);
+  const panel = document.createElement('div');
+  panel.className = 'topic-task-panel';
+  const title = document.createElement('div');
+  title.className = 'topic-task-title';
+  title.textContent = getLang() === 'en' ? 'Next actions' : '下一步动作';
+  panel.appendChild(title);
+
+  const primary = document.createElement('div');
+  primary.className = 'topic-task-grid';
+  _addBtn(primary, 'topic-task-btn topic-task-btn-primary', 'toggle-content', getLang() === 'en' ? 'Preview note' : '预览知识正文');
+  _addBtn(primary, 'topic-task-btn', 'copy-markdown', getLang() === 'en' ? 'Copy Markdown' : '复制 Markdown');
+  _addBtn(primary, 'topic-task-btn', 'export-obsidian', getLang() === 'en' ? 'Export Vault' : '导出 Vault');
+  panel.appendChild(primary);
+
+  const stateRow = document.createElement('div');
+  stateRow.className = 'topic-state-actions';
+  _addBtn(stateRow, 'topic-state-btn', 'mark-learning', getLang() === 'en' ? 'Mark learning' : '标记学习中');
+  _addBtn(stateRow, 'topic-state-btn topic-state-btn-done', 'mark-mastered', getLang() === 'en' ? 'Mark mastered' : '标记已掌握');
+  panel.appendChild(stateRow);
+
+  const preview = document.createElement('div');
+  preview.className = 'topic-content-preview hidden';
+  const body = (full?.body || d.description || '').trim();
+  preview.textContent = body || (getLang() === 'en' ? 'No note body available.' : '暂无正文内容。');
+  panel.appendChild(preview);
+
+  const hint = document.createElement('div');
+  hint.className = 'topic-task-hint';
+  hint.textContent = getLang() === 'en'
+    ? 'Use this page to decide what to learn; keep long-term notes in your own tools.'
+    : '这里负责定位和路线；长期批注、整理和复习留在你的笔记工具里。';
+  panel.appendChild(hint);
+
+  card.appendChild(panel);
+}
+
+function toggleTopicContentPreview(card) {
+  const preview = card.querySelector('.topic-content-preview');
+  if (!preview) return;
+  preview.classList.toggle('hidden');
+}
+
+async function copyTopicMarkdown(topicId) {
+  const full = getTopicFull(topicId);
+  const text = full?.body_full || full?.body || '';
+  if (!text) {
+    showToast(getLang() === 'en' ? 'No Markdown content found' : '未找到 Markdown 正文');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(getLang() === 'en' ? 'Markdown copied' : '已复制 Markdown');
+  } catch (_) {
+    showToast(getLang() === 'en' ? 'Clipboard unavailable' : '当前浏览器不允许写入剪贴板');
+  }
+}
+
+async function updateTopicStatusFromCard(topicId, status) {
+  try {
+    await fetchWithTimeout(`/api/status/${topicId}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status})
+    });
+    await refreshGraphData();
+    await updateTopbarBadge();
+    await renderLearningCockpit();
+    trackEvent('topic_status_update', { topicId, status });
+    const updated = (State.graphData?.nodes || []).find(n => n.id === topicId && n.type === 'topic');
+    if (updated) showNodeInfo(updated);
+    showToast(status === 'mastered'
+      ? (getLang() === 'en' ? 'Marked as mastered' : '已标记为掌握')
+      : (getLang() === 'en' ? 'Marked as learning' : '已标记为学习中'));
+  } catch (e) {
+    showToast(getLang() === 'en' ? 'Status update failed' : '状态更新失败');
+  }
+}
+
+function callExport(kind) {
+  showExportPreview(kind);
+}
+
+function showToast(message) {
+  let el = document.getElementById('app-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-toast';
+    el.className = 'app-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
 async function startTopicQuiz(topicId) {
@@ -830,11 +1370,12 @@ async function startTopicQuiz(topicId) {
 
     const tName = (getLang() === 'en' && data.topic_name_en) ? data.topic_name_en : data.topic_name;
     document.getElementById('quiz-flow-title').textContent = tName || topicId;
-    document.getElementById('quiz-flow-subtitle').textContent = getLang() === 'en'
-      ? `${qs.length} questions · 1 topic`
-      : `${qs.length} 道题 · 1 个主题`;
+    document.getElementById('quiz-flow-subtitle').textContent =
+      t('quiz.subtitle_topic', { n: qs.length, topics: 1 });
 
     show('quiz-flow-view');
+    trackEvent('quiz_start', { mode: 'topic', topicId, total: State.quizQuestions.length });
+    saveQuizDraft();
     renderCurrentQuestion();
   } catch (e) {
     alert(t('quiz.load_failed', {msg: e.message}));
@@ -1162,22 +1703,37 @@ function renderGlobalView() {
     .attr('r', d => topicRadius(d))
     .attr('fill', d => {
       const s = d.status || 'unknown';
-      if (s === 'mastered')   return '#3fb950';
-      if (s === 'learning')   return '#d29922';
-      if (s === 'needs_work') return '#f85149';
-      return '#4A4A6A';
+      if (s === 'mastered')   return '#30D158';
+      if (s === 'learning')   return '#FF9F0A';
+      if (s === 'needs_work') return '#FF453A';
+      return d.color || '#607D8B'; // unknown: use classification color
     })
     .attr('fill-opacity', d => {
-      // Hard topics recede slightly so beginners see easier entry points first
+      if ((d.status || 'unknown') === 'unknown') return 0.22;
       const diff = Math.max(1, Math.min(5, d.difficulty || 3));
-      return 1.0 - (diff - 1) * 0.065; // diff 1 → 1.0, diff 5 → 0.74
+      return 1.0 - (diff - 1) * 0.065;
     })
-    .attr('stroke', d => d.color || '#607D8B').attr('stroke-width', 1.5);
+    .attr('stroke', d => {
+      const s = d.status || 'unknown';
+      if (s === 'mastered')   return '#30D158';
+      if (s === 'learning')   return '#FF9F0A';
+      if (s === 'needs_work') return '#FF453A';
+      return d.color || '#607D8B';
+    })
+    .attr('stroke-width', 1.5);
+
+  // Labels — tiny at global zoom, readable when user zooms in
+  topicSel.append('text')
+    .attr('dy', d => topicRadius(d) + 9)
+    .attr('class', 'node-label node-label-topic')
+    .style('font-size', '8px')
+    .text(d => { const nm = entityName(d) || ''; return nm.length > 8 ? nm.slice(0, 7) + '…' : nm; });
 
   // ── Direction nodes (inner ring, domain color) ──────────────
   const dirG   = g.append('g').attr('class', 'g-dirs');
   const dirSel = dirG.selectAll('g').data(dirNodes).join('g')
     .attr('class', 'node-g node-dir')
+    .attr('data-id', d => d.id)
     .attr('transform', d => `translate(${d.x},${d.y})`)
     .style('cursor', 'pointer')
     .on('click', (e, d) => { e.stopPropagation(); showNodeInfo(d); })
@@ -1190,7 +1746,7 @@ function renderGlobalView() {
     .attr('stroke', d => d.color).attr('stroke-width', 1.8)
     .attr('class', 'node-circle');
   dirSel.append('path').attr('d', d => makeRingPath(d, DIR_R_G))
-    .attr('fill', '#3fb950').attr('opacity', 0.9);
+    .attr('fill', '#30D158').attr('opacity', 0.9);
   dirSel.append('text').attr('dy', DIR_R_G + 12)
     .attr('class', 'node-label').style('font-size', '10px')
     .text(d => { const nm = entityName(d) || ''; return nm.length > 9 ? nm.slice(0, 8) + '…' : nm; });
@@ -1202,8 +1758,15 @@ function renderGlobalView() {
   if (State.searchHighlightIds) applySearchHighlight(State.searchHighlightIds);
 }
 
+function clearActivePathStep() {
+  State.activePathStep = null;
+  document.querySelectorAll('.path-step.active').forEach(el => el.classList.remove('active'));
+  if (g) g.selectAll('.path-highlight').remove();
+}
+
 // 切换全局/领域/路径/目录视图
 function setGraphView(view) {
+  clearNodeFocus();
   State.graphView = view;
   const gb = document.getElementById('btn-global-view');
   const db = document.getElementById('btn-domain-view');
@@ -1219,11 +1782,13 @@ function setGraphView(view) {
   const legend = document.querySelector('.graph-legend');
   const nodeInfo = document.getElementById('node-info-panel');
 
+  if (view !== 'path') clearActivePathStep();
+
   if (view === 'path') {
     // 路径视图：图谱显示全局总览（若尚未渲染则先渲染），侧栏显示路径
-    legend.classList.add('hidden');
-    nodeInfo.classList.add('hidden');
-    pathPanel.classList.remove('hidden');
+    if (legend) legend.classList.add('hidden');
+    if (nodeInfo) nodeInfo.classList.add('hidden');
+    if (pathPanel) pathPanel.classList.remove('hidden');
     if (dirPanel) dirPanel.classList.add('hidden');
     if (gb) gb.classList.remove('active');
     if (db) db.classList.remove('active');
@@ -1237,9 +1802,9 @@ function setGraphView(view) {
     renderPathPanel();
   } else if (view === 'dir') {
     // 目录视图：侧栏显示树形目录，图谱保持全局总览
-    legend.classList.add('hidden');
-    nodeInfo.classList.add('hidden');
-    pathPanel.classList.add('hidden');
+    if (legend) legend.classList.add('hidden');
+    if (nodeInfo) nodeInfo.classList.add('hidden');
+    if (pathPanel) pathPanel.classList.add('hidden');
     if (dirPanel) dirPanel.classList.remove('hidden');
     updateLayerDots(0);
     if (!State.simulationNodes) {
@@ -1249,12 +1814,11 @@ function setGraphView(view) {
     renderDirPanel();
   } else {
     // 切回图谱视图：恢复侧栏，清除高亮
-    legend.classList.remove('hidden');
-    nodeInfo.classList.remove('hidden');
-    pathPanel.classList.add('hidden');
+    if (legend) legend.classList.remove('hidden');
+    if (nodeInfo) nodeInfo.classList.remove('hidden');
+    if (pathPanel) pathPanel.classList.add('hidden');
     if (dirPanel) dirPanel.classList.add('hidden');
-    g.selectAll('\.path-highlight').remove();
-    State.activePathStep = null;
+    clearActivePathStep();
 
     const backBtn = document.getElementById('crumb-back-global');
     if (view === 'global') {
@@ -1313,11 +1877,11 @@ function renderPathPanel() {
     const isMastered = status === 'mastered';
     const isActive = topicId === State.activePathStep;
 
-    let dotColor = '#4A4A6A';
+    let dotColor = '#3A3A3C';
     let dotBorder = tn ? (tn.color || '#607D8B') : '#607D8B';
-    if (status === 'mastered')        { dotColor = '#3fb950'; dotBorder = '#3fb950'; }
-    else if (status === 'learning')   { dotColor = '#d29922'; dotBorder = '#d29922'; }
-    else if (status === 'needs_work') { dotColor = '#f85149'; dotBorder = '#f85149'; }
+    if (status === 'mastered')        { dotColor = '#30D158'; dotBorder = '#30D158'; }
+    else if (status === 'learning')   { dotColor = '#FF9F0A'; dotBorder = '#FF9F0A'; }
+    else if (status === 'needs_work') { dotColor = '#FF453A'; dotBorder = '#FF453A'; }
 
     const step = document.createElement('div');
     step.className = 'path-step' + (isActive ? ' active' : '');
@@ -1338,6 +1902,7 @@ function renderPathPanel() {
     const desc = (getLang() === 'en' && path.desc_en) ? path.desc_en : (path.desc || '');
     metaEl.innerHTML = `<div class="path-progress-bar"><div class="path-progress-fill" style="width:${pct}%"></div></div>
       <div class="path-progress-label">${escHtml(desc)}</div>
+      <button type="button" class="path-compare-hint" onclick="setActivePath(State.activePath === 'apply' ? 'understand' : 'apply')">${escHtml(t('path.compare_hint'))}</button>
       <div class="path-mastered-count">${escHtml(t('path.mastered_of', {n: masteredCount, total: path.steps.length}))}</div>`;
   }
 }
@@ -1349,7 +1914,7 @@ function setActivePath(intent) {
   const ub = document.getElementById('btn-understand-path');
   if (ab) ab.classList.toggle('active', intent === 'apply');
   if (ub) ub.classList.toggle('active', intent === 'understand');
-  g.selectAll('\.path-highlight').remove();
+  if (g) g.selectAll('.path-highlight').remove();
   const detailEl = document.getElementById('path-node-detail');
   if (detailEl) detailEl.innerHTML = '';
   renderPathPanel();
@@ -1430,7 +1995,7 @@ function renderDirPanel() {
   const dirs  = nodes.filter(n => n.type === 'direction');
   const topics = nodes.filter(n => n.type === 'topic');
 
-  const statusColor = { mastered: '#3fb950', learning: '#d29922', needs_work: '#f85149', unknown: '#8B949E' };
+  const statusColor = { mastered: '#30D158', learning: '#FF9F0A', needs_work: '#FF453A', unknown: '#8B949E' };
 
   let html = '';
   for (const area of areas) {
@@ -1513,7 +2078,10 @@ function renderDirectionsGrid() {
     const color = areaColors[d.area] || '#888';
     const m = dirMastery[d.id] || { mastered: 0, total: d.topic_count || 4 };
     const pct = m.total > 0 ? Math.round(m.mastered / m.total * 100) : 0;
-    const pctColor = pct >= 80 ? '#3fb950' : pct >= 40 ? '#d29922' : color;
+    const pctColor = pct >= 80 ? '#30D158' : pct >= 40 ? '#FF9F0A' : color;
+    const questionText = d.total_questions
+      ? t('dir.questions_n', { n: d.total_questions })
+      : t('dir.questions_dynamic');
     return `
       <div class="direction-card" data-id="${escHtml(d.id)}">
         <div class="direction-card-top">
@@ -1521,7 +2089,7 @@ function renderDirectionsGrid() {
           <div class="direction-card-name">${escHtml(getLang() === 'en' && d.name_en ? d.name_en : d.name)}</div>
           ${pct > 0 ? `<span class="dir-card-pct" style="color:${pctColor}">${pct}%</span>` : ''}
         </div>
-        <div class="direction-card-meta">${t('dir.topics_n', {n: m.total})} · ${t('dir.questions_n', {n: m.total * 3})}</div>
+        <div class="direction-card-meta">${t('dir.topics_n', {n: m.total})} · ${questionText}</div>
         ${pct > 0 ? `<div class="dir-card-bar"><div class="dir-card-bar-fill" style="width:${pct}%;background:${pctColor}"></div></div>` : ''}
       </div>
     `;
@@ -1531,28 +2099,75 @@ function renderDirectionsGrid() {
   });
 }
 
-// 全局诊断
-document.getElementById('btn-start-diagnostic').addEventListener('click', startDiagnostic);
+// 全局/快速诊断
+document.getElementById('btn-start-diagnostic')?.addEventListener('click', startDiagnostic);
+document.getElementById('btn-start-quick-diagnostic')?.addEventListener('click', startQuickDiagnostic);
 
-async function startDiagnostic() {
-  State.quizMode = 'diagnostic';
+function beginQuizFlow({ mode, questions, title, subtitle, directionId = null, topicId = null }) {
+  State.quizMode = mode;
+  State.currentDirectionId = directionId;
+  State.currentTopicId = topicId;
+  State.quizQuestions = questions || [];
+  State.quizIndex = 0;
+  State.quizAnswers = [];
+  State.answeredCurrent = false;
   hide('quiz-home-view');
   hide('quiz-result-view');
   hide('direction-result-view');
+  document.getElementById('quiz-flow-title').textContent = title;
+  document.getElementById('quiz-flow-subtitle').textContent = subtitle;
+  show('quiz-flow-view');
+  trackEvent('quiz_start', { mode, total: State.quizQuestions.length });
+  saveQuizDraft();
+  renderCurrentQuestion();
+}
 
+function pickQuickDiagnosticQuestions(allQuestions) {
+  const dirToArea = {};
+  (State.directions || []).forEach(d => { dirToArea[d.id] = d.area; });
+  const chosen = [];
+  const usedAreas = new Set();
+  const sorted = [...(allQuestions || [])].sort((a, b) => (a.difficulty || 2) - (b.difficulty || 2));
+  for (const q of sorted) {
+    const area = dirToArea[q.direction_id] || q.area || q.direction_id;
+    if (!usedAreas.has(area)) {
+      chosen.push(q);
+      usedAreas.add(area);
+    }
+    if (chosen.length >= 5) break;
+  }
+  for (const q of sorted) {
+    if (chosen.length >= 5) break;
+    if (!chosen.includes(q)) chosen.push(q);
+  }
+  return chosen.slice(0, 5);
+}
+
+async function startQuickDiagnostic() {
+  switchToTab('quiz');
   try {
     const data = await fetchWithTimeout('/api/diagnostic').then(r => r.json());
-    State.quizQuestions = data.questions || [];
-    State.quizIndex = 0;
-    State.quizAnswers = [];
-    State.answeredCurrent = false;
+    const questions = pickQuickDiagnosticQuestions(data.questions || []);
+    beginQuizFlow({
+      mode: 'quick',
+      questions,
+      title: getLang() === 'en' ? 'Quick Diagnostic' : '快速定位',
+      subtitle: getLang() === 'en' ? `${questions.length} intro questions · about 1 minute` : `${questions.length} 道入门题 · 约 1 分钟`
+    });
+  } catch (e) {
+    alert(t('quiz.load_failed', {msg: e.message}));
+  }
+}
 
-    document.getElementById('quiz-flow-title').textContent = getLang() === 'en' ? 'Global Diagnostic' : '全局诊断';
-    document.getElementById('quiz-flow-subtitle').textContent =
-      `${data.total} ${getLang() === 'en' ? 'questions · covering all 15 directions' : '道题 · 覆盖全部 15 个方向'}`;
-
-    show('quiz-flow-view');
-    renderCurrentQuestion();
+async function startDiagnostic() {
+  try {
+    const data = await fetchWithTimeout('/api/diagnostic').then(r => r.json());
+    beginQuizFlow({
+      mode: 'diagnostic',
+      questions: data.questions || [],
+      title: getLang() === 'en' ? 'Full Diagnostic' : '完整诊断',
+      subtitle: t('quiz.subtitle_diagnostic', { n: data.total || (data.questions || []).length })
+    });
   } catch (e) {
     alert(t('quiz.load_failed', {msg: e.message}));
   }
@@ -1578,11 +2193,12 @@ async function startDirectionQuiz(dirId) {
 
     const dirNameDisplay = getLang() === 'en' && dir?.name_en ? dir.name_en : dirName;
     document.getElementById('quiz-flow-title').textContent = dirNameDisplay;
-    document.getElementById('quiz-flow-subtitle').textContent = getLang() === 'en'
-      ? `${data.total_questions} questions · ${data.topics?.length || 4} topics`
-      : `${data.total_questions} 道题 · ${data.topics?.length || 4} 个主题`;
+    document.getElementById('quiz-flow-subtitle').textContent =
+      t('quiz.subtitle_direction', { n: data.total_questions, topics: data.topics?.length || 4 });
 
     show('quiz-flow-view');
+    trackEvent('quiz_start', { mode: 'direction', directionId: dirId, total: State.quizQuestions.length });
+    saveQuizDraft();
     renderCurrentQuestion();
   } catch (e) {
     alert(t('quiz.load_failed', {msg: e.message}));
@@ -1601,7 +2217,11 @@ function renderCurrentQuestion() {
   document.getElementById('quiz-counter').textContent = `${current} / ${total}`;
 
   // 方向标签
-  const dirLabel = q.direction_name ? `方向：${q.direction_name}  ·  主题：${q.topic_name}` : `主题：${q.topic_name}`;
+  const dirName = getLang() === 'en' && q.direction_name_en ? q.direction_name_en : q.direction_name;
+  const topicName = getLang() === 'en' && q.topic_name_en ? q.topic_name_en : q.topic_name;
+  const dirLabel = dirName
+    ? t('quiz.dir_topic', { dir: dirName, topic: topicName })
+    : t('quiz.topic_only', { topic: topicName });
   document.getElementById('quiz-direction-label').textContent = dirLabel;
 
   // 题目
@@ -1678,14 +2298,11 @@ async function selectOption(idx) {
   }
 
   // 记录答案（is_correct 以服务端为准）
-  State.quizAnswers.push({
-    question_index: State.quizIndex,
-    within_topic_q_index: q.within_topic_q_index ?? State.quizIndex,
-    selected_index: idx,
-    is_correct: isCorrect,
-    topic_id: q.topic_id,
-    direction_id: q.direction_id || State.currentDirectionId
-  });
+  State.quizAnswers.push(currentQuizAnswerPayload({
+    selectedIndex: idx,
+    isCorrect
+  }));
+  saveQuizDraft();
 
   // 高亮选项
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
@@ -1705,10 +2322,86 @@ async function selectOption(idx) {
   if (skipBtn) skipBtn.style.display = 'none';
 }
 
+function currentQuizAnswerPayload({ skipped = false, selectedIndex = -1, isCorrect = false } = {}) {
+  const q = State.quizQuestions[State.quizIndex];
+  return {
+    question_index: State.quizIndex,
+    within_topic_q_index: q?.within_topic_q_index ?? State.quizIndex,
+    selected_index: selectedIndex,
+    skipped,
+    is_correct: isCorrect,
+    topic_id: q?.topic_id,
+    direction_id: q?.direction_id || State.currentDirectionId
+  };
+}
+
+function saveQuizDraft() {
+  try {
+    if (!State.quizMode || !State.quizQuestions?.length) return;
+    sessionStorage.setItem('kg_quiz_draft', JSON.stringify({
+      quizMode: State.quizMode,
+      currentDirectionId: State.currentDirectionId,
+      currentTopicId: State.currentTopicId,
+      quizIndex: State.quizIndex,
+      answers: State.quizAnswers,
+      questions: State.quizQuestions,
+      total: State.quizQuestions.length,
+      updatedAt: Date.now()
+    }));
+  } catch (_) {}
+}
+
+function clearQuizDraft() {
+  try { sessionStorage.removeItem('kg_quiz_draft'); } catch (_) {}
+  renderQuizDraftCard();
+}
+
+function getQuizDraft() {
+  const draft = readJsonStorage(sessionStorage, 'kg_quiz_draft', null);
+  if (!draft || !draft.questions || !draft.total) return null;
+  if (Date.now() - (draft.updatedAt || 0) > 24 * 60 * 60 * 1000) { clearQuizDraft(); return null; }
+  return draft;
+}
+
+function renderQuizDraftCard() {
+  const card = document.getElementById('quiz-draft-card');
+  if (!card) return;
+  const draft = getQuizDraft();
+  if (!draft) { card.classList.add('hidden'); card.innerHTML = ''; return; }
+  const done = Math.min(draft.answers?.length || draft.quizIndex || 0, draft.total || 0);
+  const modeLabel = draft.quizMode === 'quick' ? (getLang() === 'en' ? 'quick diagnostic' : '快速定位') : draft.quizMode === 'diagnostic' ? (getLang() === 'en' ? 'full diagnostic' : '完整诊断') : (getLang() === 'en' ? 'quiz' : '测评');
+  card.innerHTML = `<div><strong>${getLang() === 'en' ? 'Resume draft?' : '继续上次测评？'}</strong><span>${getLang() === 'en' ? `Your ${modeLabel} reached ${done}/${draft.total}.` : `你的${modeLabel}进行到 ${done}/${draft.total}。`}</span></div><div class="quiz-draft-actions"><button class="btn-primary" onclick="resumeQuizDraft()">${getLang() === 'en' ? 'Resume' : '继续'}</button><button class="btn-secondary" onclick="discardQuizDraft()">${getLang() === 'en' ? 'Discard' : '放弃'}</button></div>`;
+  card.classList.remove('hidden');
+}
+
+function resumeQuizDraft() {
+  const draft = getQuizDraft();
+  if (!draft) return;
+  State.quizMode = draft.quizMode;
+  State.currentDirectionId = draft.currentDirectionId || null;
+  State.currentTopicId = draft.currentTopicId || null;
+  State.quizQuestions = draft.questions || [];
+  State.quizIndex = Math.min(draft.quizIndex || 0, Math.max(0, State.quizQuestions.length - 1));
+  State.quizAnswers = draft.answers || [];
+  State.answeredCurrent = false;
+  hide('quiz-home-view'); hide('quiz-result-view'); hide('direction-result-view'); show('quiz-flow-view');
+  const titleMap = { quick: '快速定位', diagnostic: '完整诊断', direction: '方向测评', topic: '主题测评' };
+  document.getElementById('quiz-flow-title').textContent = getLang() === 'en' ? 'Resume Quiz' : (titleMap[State.quizMode] || '继续测评');
+  document.getElementById('quiz-flow-subtitle').textContent = `${State.quizQuestions.length} ${getLang() === 'en' ? 'questions' : '道题'} · ${getLang() === 'en' ? 'draft restored' : '已恢复草稿'}`;
+  trackEvent('quiz_draft_resume', { mode: State.quizMode, total: State.quizQuestions.length });
+  renderCurrentQuestion();
+}
+
+function discardQuizDraft() {
+  clearQuizDraft();
+  trackEvent('quiz_draft_discard');
+}
+
 document.getElementById('btn-next-question').addEventListener('click', () => {
   if (!State.answeredCurrent) return;
 
   State.quizIndex++;
+  saveQuizDraft();
   if (State.quizIndex >= State.quizQuestions.length) {
     finishQuiz();
   } else {
@@ -1719,7 +2412,10 @@ document.getElementById('btn-next-question').addEventListener('click', () => {
 
 document.getElementById('btn-skip-question').addEventListener('click', () => {
   if (State.answeredCurrent) return; // already answered, use next button instead
+  State.quizAnswers.push(currentQuizAnswerPayload({ skipped: true }));
+  trackEvent('quiz_skip', { mode: State.quizMode, index: State.quizIndex });
   State.quizIndex++;
+  saveQuizDraft();
   if (State.quizIndex >= State.quizQuestions.length) {
     finishQuiz();
   } else {
@@ -1729,15 +2425,21 @@ document.getElementById('btn-skip-question').addEventListener('click', () => {
 });
 
 document.getElementById('btn-quit-quiz').addEventListener('click', () => {
+  const hasProgress = State.quizIndex > 0 || State.quizAnswers.length > 0;
+  if (hasProgress && !window.confirm(t('quiz.quit_confirm'))) return;
+  if (hasProgress) saveQuizDraft();
+  trackEvent('quiz_abandon', { mode: State.quizMode, answered: State.quizAnswers.length, total: State.quizQuestions.length });
   hide('quiz-flow-view');
   show('quiz-home-view');
 });
 
 async function finishQuiz() {
+  clearQuizDraft();
   hide('quiz-flow-view');
   document.getElementById('quiz-progress-fill').style.width = '100%';
 
-  if (State.quizMode === 'diagnostic') {
+  trackEvent('quiz_complete', { mode: State.quizMode, answered: State.quizAnswers.length, skipped: State.quizAnswers.filter(a => a.skipped).length, total: State.quizQuestions.length });
+  if (State.quizMode === 'diagnostic' || State.quizMode === 'quick') {
     await submitDiagnostic();
   } else if (State.quizMode === 'topic') {
     await submitDirectionQuiz();  // topic answers have direction_id; reuse direction submit
@@ -1746,6 +2448,7 @@ async function finishQuiz() {
   }
 
   updateTopbarBadge();
+  renderLearningCockpit();
   // 刷新图谱状态（后台静默更新，不影响当前界面）
   refreshGraphData();
 }
@@ -1759,6 +2462,7 @@ async function submitDiagnostic() {
     }).then(r => r.json());
 
     State._lastDiagnosticResult = result;
+    completeOnboardStep('quiz');
     renderDiagnosticResult(result);
     show('quiz-result-view');
   } catch (e) {
@@ -1776,6 +2480,7 @@ async function submitDirectionQuiz() {
     }).then(r => r.json());
 
     State._lastDirectionResult = result;
+    completeOnboardStep('quiz');
     renderDirectionResult(result);
     show('direction-result-view');
   } catch (e) {
@@ -1832,8 +2537,28 @@ function renderDiagnosticResult(result) {
     });
   }
 
+  renderSkippedSummaryInResult(result);
+
   // 推荐下一步
   renderNextSteps(result);
+}
+
+function renderSkippedSummaryInResult(result) {
+  const scoresList = document.getElementById('direction-scores-list');
+  if (!scoresList) return;
+  const skipped = State.quizAnswers.filter(a => a.skipped);
+  const old = document.getElementById('skipped-summary');
+  if (old) old.remove();
+  if (!skipped.length) return;
+  const byDir = skipped.reduce((acc, a) => { const k = a.direction_id || 'unknown'; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const top = Object.entries(byDir).sort((a,b)=>b[1]-a[1])[0];
+  const dir = (State.directions || []).find(d => d.id === top?.[0]);
+  const dirName = dir ? (getLang() === 'en' && dir.name_en ? dir.name_en : dir.name) : top?.[0];
+  const el = document.createElement('div');
+  el.id = 'skipped-summary';
+  el.className = 'skipped-summary';
+  el.innerHTML = `${getLang() === 'en' ? 'Skipped' : '已跳过'} ${skipped.length} ${getLang() === 'en' ? 'question(s). Skipped questions are not scored.' : '题，不参与评分。'}${dirName ? `<br>${getLang() === 'en' ? 'Most skipped area' : '跳过集中方向'}：${escHtml(dirName)}` : ''}`;
+  scoresList.appendChild(el);
 }
 
 function renderNextSteps(result) {
@@ -1852,7 +2577,7 @@ function renderNextSteps(result) {
   // 先从弱方向找基础 topic
   for (const dirId of weakDirIds) {
     const dirTopics = allTopics
-      .filter(t => t.direction === dirId && (t.difficulty || 3) <= 2)
+      .filter(t => t.direction === dirId && (t.difficulty || 3) <= 2 && t.status !== 'mastered')
       .sort((a, b) => (a.difficulty || 3) - (b.difficulty || 3));
     for (const t of dirTopics.slice(0, 1)) {
       candidates.push({ topic: t, reason: '薄弱方向基础入口' });
@@ -1864,7 +2589,7 @@ function renderNextSteps(result) {
     .filter(([did, info]) => info.percent > 0 && info.percent < 50 && !weakDirIds.has(did))
     .sort((a, b) => a[1].percent - b[1].percent);
   for (const [did, info] of midDirs.slice(0, 2)) {
-    const t = allTopics.find(t => t.direction === did && (t.difficulty || 3) <= 2);
+    const t = allTopics.find(t => t.direction === did && (t.difficulty || 3) <= 2 && t.status !== 'mastered');
     if (t) candidates.push({ topic: t, reason: '需要巩固的方向' });
   }
 
@@ -1872,7 +2597,7 @@ function renderNextSteps(result) {
   const practiceTopics = ['mcp_protocol', 'skill_building', 'agent_basics'];
   for (const pid of practiceTopics) {
     const t = allTopics.find(t => t.id === pid);
-    if (t && !candidates.find(c => c.topic.id === pid)) {
+    if (t && t.status !== 'mastered' && !candidates.find(c => c.topic.id === pid)) {
       candidates.push({ topic: t, reason: 'Agent 实践必学' });
       if (candidates.length >= 5) break;
     }
@@ -1995,7 +2720,7 @@ async function showMasteryModeBanner(result) {
   const isEn = getLang() === 'en';
 
   const recHtml = recs.length > 0 ? `
-    <div class="mastery-banner-recs-title">${isEn ? '🚀 Recommended next' : '🚀 推荐下一步'}</div>
+    <div class="mastery-banner-recs-title">${isEn ? 'Recommended next' : '推荐下一步'}</div>
     ${recs.map(r => {
       const name = (isEn && r.name_en) ? r.name_en : r.name;
       return `<button class="mastery-rec-btn" data-id="${escHtml(r.id)}">${escHtml(name)}</button>`;
@@ -2005,7 +2730,7 @@ async function showMasteryModeBanner(result) {
   panel.innerHTML = `
     <div class="mastery-mode-banner">
       <div class="mastery-banner-header">
-        <span class="mastery-banner-title">${isEn ? '📊 Post-Diagnostic Graph' : '📊 诊断后知识图谱'}</span>
+        <span class="mastery-banner-title">${isEn ? 'Post-diagnostic map' : '诊断后学习地图'}</span>
         <button class="mastery-banner-exit" onclick="clearMasteryModeBanner()">${isEn ? '✕ Exit' : '✕ 退出'}</button>
       </div>
       <div class="mastery-banner-score">${isEn ? `Score: ${correct}/${total} (${pct}%)` : `本次得分：${correct}/${total}（${pct}%）`}</div>
@@ -2024,16 +2749,8 @@ async function showMasteryModeBanner(result) {
 function clearMasteryModeBanner() {
   const panel = document.getElementById('node-info-panel');
   if (!panel) return;
-  panel.innerHTML = `<div class="node-info-empty" id="node-info-empty-msg">
-    <div class="onboard-title">AI / LLM / Agent 知识图谱</div>
-    <div class="onboard-ways">
-      <div class="onboard-way">🗺 <strong>浏览</strong>：单击节点查看详情，双击深入</div>
-      <div class="onboard-way">🔍 <strong>搜索</strong>：顶部搜索框，快捷键 ⌘K</div>
-      <div class="onboard-way">📝 <strong>测评</strong>：点击"测评"Tab 开始诊断</div>
-      <div class="onboard-way">📂 <strong>目录</strong>：切换"目录"视图完整浏览</div>
-    </div>
-    <div class="onboard-hint">单击节点后此处显示详情</div>
-  </div>`;
+  panel.innerHTML = getOnboardingMarkup();
+  renderOnboardChecklist();
 }
 
 // ============================================================
@@ -2087,7 +2804,8 @@ function drawRadar(selector, data, width, height) {
     const labelR = radius + 20;
     const lx = labelR * Math.cos(angle);
     const ly = labelR * Math.sin(angle);
-    const label = d.axis.length > 6 ? d.axis.slice(0, 6) + '…' : d.axis;
+    const labelLimit = getLang() === 'en' ? 14 : 6;
+    const label = d.axis.length > labelLimit ? d.axis.slice(0, labelLimit) + '…' : d.axis;
 
     g.append('text')
       .attr('x', lx)
@@ -2132,6 +2850,17 @@ function drawRadar(selector, data, width, height) {
 // Tab 3: 进度看板
 // ============================================================
 
+function buildDirectionRadarData(progress) {
+  const areas = progress?.areas || {};
+  const rows = (State.directions || []).map(d => {
+    const dData = areas[d.area]?.directions?.[d.id];
+    if (!dData) return null;
+    const name = getLang() === 'en' && dData.name_en ? dData.name_en : (dData.name || entityName(d));
+    return { axis: name, value: Math.max(0, Math.min(1, (dData.percent || 0) / 100)) };
+  }).filter(Boolean);
+  return rows.length >= 3 ? rows : null;
+}
+
 async function loadProgress() {
   try {
     const [p, recs] = await Promise.all([
@@ -2145,22 +2874,31 @@ async function loadProgress() {
     document.getElementById('stat-needs-work').textContent = p.needs_work ?? 0;
     document.getElementById('stat-unknown').textContent = p.unknown;
 
-    // 雷达图
-    drawRadar('#progress-radar-svg', p.radar_data || [], 340, 300);
+    // 雷达图：与诊断结果保持方向级维度，避免 15 维诊断图与 5 维进度图来回跳变。
+    drawRadar('#progress-radar-svg', buildDirectionRadarData(p) || p.radar_data || [], 340, 300);
 
-    // 下一步推荐
+    renderWeeklyGoalCard(p);
+
+    // 下一步推荐：卡片化并给出动作，而不是只放一排 chip。
     const nextSection = document.getElementById('progress-next-steps');
     const nextChips = document.getElementById('progress-next-chips');
     if (Array.isArray(recs) && recs.length > 0) {
-      nextChips.innerHTML = recs.map(r => {
+      nextChips.innerHTML = recs.slice(0, 5).map(r => {
         const name = (getLang() === 'en' && r.name_en) ? r.name_en : r.name;
-        return `<button class="next-step-chip" data-id="${escHtml(r.id)}">${escHtml(name)}</button>`;
+        const topic = (State.graphData?.nodes || []).find(n => n.id === r.id) || r;
+        const dir = (State.directions || []).find(d => d.id === topic.direction);
+        const dirName = dir ? (getLang() === 'en' && dir.name_en ? dir.name_en : dir.name) : '';
+        return `<div class="progress-rec-card" data-id="${escHtml(r.id)}">
+          <div><strong>${escHtml(name)}</strong><span>${escHtml(dirName)} · ${escHtml(r.reason || buildClientRecommendationReason(r))}</span></div>
+          <div class="progress-rec-actions"><button data-action="quiz">${getLang() === 'en' ? 'Quiz' : '测评'}</button><button data-action="view">${getLang() === 'en' ? 'View in map' : '在图谱中查看'}</button></div>
+        </div>`;
       }).join('');
       nextSection.style.display = '';
-      nextChips.querySelectorAll('.next-step-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
+      nextChips.querySelectorAll('.progress-rec-card').forEach(card => {
+        card.querySelector('[data-action="quiz"]')?.addEventListener('click', () => startTopicQuiz(card.dataset.id));
+        card.querySelector('[data-action="view"]')?.addEventListener('click', () => {
           switchToTab('graph');
-          setTimeout(() => navigateToNode('topic', btn.dataset.id), 200);
+          setTimeout(() => navigateToNode('topic', card.dataset.id), 200);
         });
       });
     } else {
@@ -2205,10 +2943,39 @@ async function loadProgress() {
   }
 }
 
+function getWeekStartTs(ts = Date.now()) {
+  const d = new Date(ts);
+  const day = d.getDay() || 7;
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - day + 1);
+  return d.getTime();
+}
+
+function renderWeeklyGoalCard(p) {
+  const el = document.getElementById('weekly-goal-card');
+  if (!el) return;
+  const weekStart = getWeekStartTs();
+  const goal = Number(localStorage.getItem('kg_weekly_goal') || 0);
+  const masteredThisWeek = getKgEvents().filter(e => e.name === 'topic_status_update' && e.data?.status === 'mastered' && e.ts >= weekStart).length;
+  if (!goal) {
+    el.innerHTML = `<div><strong>${getLang() === 'en' ? 'Set a weekly goal' : '设置本周目标'}</strong><span>${getLang() === 'en' ? 'A small target turns the map into action.' : '小目标能把地图变成行动。'}</span></div><div class="weekly-goal-options">${[1,3,5,10].map(n => `<button onclick="setWeeklyGoal(${n})">${n}</button>`).join('')}</div>`;
+    return;
+  }
+  const pct = Math.min(100, Math.round(masteredThisWeek / goal * 100));
+  el.innerHTML = `<div><strong>${getLang() === 'en' ? 'Weekly goal' : '本周目标'}</strong><span>${masteredThisWeek}/${goal} ${getLang() === 'en' ? 'topics mastered this week' : '个主题已在本周掌握'}</span></div><div class="weekly-goal-track"><i style="width:${pct}%"></i></div><button class="weekly-goal-reset" onclick="setWeeklyGoal(0)">${getLang() === 'en' ? 'Reset' : '重设'}</button>`;
+}
+
+function setWeeklyGoal(n) {
+  if (n > 0) localStorage.setItem('kg_weekly_goal', String(n));
+  else localStorage.removeItem('kg_weekly_goal');
+  trackEvent('weekly_goal_set', { goal: n });
+  if (State._lastProgressData) renderWeeklyGoalCard(State._lastProgressData);
+}
+
 function renderProgressHeatmap(p) {
   const container = document.getElementById('progress-heatmap');
   if (!container) return;
-  const statusColor = { mastered: '#3fb950', learning: '#d29922', needs_work: '#f85149', unknown: '#4a5568' };
+  const statusColor = { mastered: '#30D158', learning: '#FF9F0A', needs_work: '#FF453A', unknown: '#4a5568' };
   const lang = getLang();
   let html = '';
   Object.entries(p.areas || {}).forEach(([aid, aData]) => {
@@ -2237,10 +3004,26 @@ function renderProgressHeatmap(p) {
   container.innerHTML = html;
   container.querySelectorAll('.hm-dot[data-topic-id]').forEach(dot => {
     dot.addEventListener('click', () => {
-      switchToTab('graph');
-      setTimeout(() => navigateToNode('topic', dot.dataset.topicId), 200);
+      const topic = (State.graphData?.nodes || []).find(n => n.id === dot.dataset.topicId);
+      showHeatmapMiniCard(dot, topic);
     });
   });
+  renderPrivacyPanel();
+}
+
+function showHeatmapMiniCard(anchor, topic) {
+  if (!topic) return;
+  document.getElementById('heatmap-mini-card')?.remove();
+  const el = document.createElement('div');
+  el.id = 'heatmap-mini-card';
+  el.className = 'heatmap-mini-card';
+  el.innerHTML = `<strong>${escHtml(entityName(topic))}</strong><span>${escHtml(getStatusLabel(topic.status, topic.tested))}</span><button type="button">${getLang() === 'en' ? 'Open in map' : '跳到图谱'}</button>`;
+  document.body.appendChild(el);
+  const r = anchor.getBoundingClientRect();
+  el.style.left = `${Math.min(window.innerWidth - 220, r.left)}px`;
+  el.style.top = `${r.bottom + 8}px`;
+  el.querySelector('button').onclick = () => { el.remove(); switchToTab('graph'); setTimeout(() => navigateToNode('topic', topic.id), 160); };
+  setTimeout(() => document.addEventListener('click', function close(e){ if (!el.contains(e.target)) { el.remove(); document.removeEventListener('click', close, true); }}, true), 0);
 }
 
 // ============================================================
@@ -2249,8 +3032,16 @@ function renderProgressHeatmap(p) {
 
 let _searchTimer = null;
 
+function updateSearchClearVisibility() {
+  const input = document.getElementById('search-input');
+  const clear = document.getElementById('search-clear');
+  if (clear && input) clear.style.visibility = input.value.trim() ? 'visible' : 'hidden';
+}
+
+
 document.getElementById('search-input').addEventListener('input', e => {
   const q = e.target.value.trim();
+  updateSearchClearVisibility();
   clearTimeout(_searchTimer);
   if (!q) { closeSearch(); return; }
   _searchTimer = setTimeout(() => runSearch(q), 300);
@@ -2262,6 +3053,7 @@ document.getElementById('search-input').addEventListener('keydown', e => {
 
 document.getElementById('search-clear').addEventListener('click', () => {
   document.getElementById('search-input').value = '';
+  updateSearchClearVisibility();
   closeSearch();
 });
 
@@ -2304,7 +3096,7 @@ async function runSearch(q) {
     if (results.length === 0) {
       body.innerHTML = `
         <div class="search-empty">
-          <div style="font-size:28px;margin-bottom:10px">🔍</div>
+          <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">No result</div>
           <div>${escHtml(t('search.not_found', {q}))}</div>
           <div style="margin-top:6px;font-size:11px">${escHtml(t('search.no_result_hint'))}</div>
         </div>`;
@@ -2350,9 +3142,9 @@ function renderSearchResult(r) {
     `<span class="search-tag">${escHtml(t)}</span>`
   ).join('');
 
-  const dotColor = r.status === 'mastered' ? '#3fb950'
-    : r.status === 'learning' ? '#d29922'
-    : (r.tested ? '#f85149' : '#8b949e');
+  const dotColor = r.status === 'mastered' ? '#30D158'
+    : r.status === 'learning' ? '#FF9F0A'
+    : (r.tested ? '#FF453A' : '#8b949e');
   const statusDot = r.status
     ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px"></span>`
     : '';
@@ -2396,7 +3188,7 @@ function navigateToNode(type, id) {
   const _backBtn = document.getElementById('crumb-back-global');
   if (_backBtn) _backBtn.style.display = '';
 
-  const STEP = 60;
+  const STEP = 360; // wait for graph layout/zoom transition before restoring focus
 
   if (type === 'area') {
     renderAreaLevel();
@@ -2496,11 +3288,17 @@ function appendCourseExploreBtn(container, nodeType, nodeId, nodeName) {
 // 日/夜主题切换
 // ============================================================
 
+function updateThemeToggleLabel(theme) {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  btn.textContent = theme === 'light' ? '🌙' : '☀';
+  btn.title = t('theme.toggle');
+}
+
 (function initTheme() {
   const saved = localStorage.getItem('kg_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = saved === 'light' ? '🌙' : '☀';
+  updateThemeToggleLabel(saved);
 })();
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
@@ -2508,10 +3306,11 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   const next = current === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('kg_theme', next);
-  document.getElementById('theme-toggle').textContent = next === 'light' ? '🌙' : '☀';
+  updateThemeToggleLabel(next);
   // 重绘图谱以更新颜色
   if (State.graphView === 'global') renderGlobalView();
   else if (State.graphLevel === 'area') renderAreaLevel();
 });
 
+updateSearchClearVisibility();
 init();

@@ -6,16 +6,24 @@
 const TRANSLATIONS = {
   zh: {
     // Topbar / tabs
-    'title':              'AI 知识图谱',
-    'tab.graph':          '🗺 知识图谱',
-    'tab.quiz':           '📝 测评',
-    'tab.progress':       '📊 进度看板',
-    'search.placeholder': '🔍 搜索知识点，如：RAG、工程、fine-tuning…',
+    'title':              'Super Alignment',
+    'tab.graph':          '知识地图',
+    'tab.quiz':           '诊断',
+    'tab.progress':       '进度',
+    'search.placeholder': '搜索知识点，如：RAG、工程、fine-tuning…',
     'badge.loading':      '加载中...',
     'badge.mastered':     '掌握',
 
     // Graph sidebar
-    'sidebar.title':      '知识图谱',
+    'sidebar.title':      '学习地图',
+    'cockpit.title':      '先定位薄弱方向，再导出到你的笔记工具继续学习',
+    'cockpit.next_label': '推荐下一步',
+    'cockpit.no_rec':     '完成诊断后这里会出现推荐。',
+    'cockpit.primary':    '立即诊断 →',
+    'cockpit.path_link':  '查看路径',
+    'cockpit.search_link':'搜索',
+    'cockpit.jump_toast': '已切换到该主题视图，可点“全局总览”返回。',
+    'theme.toggle':       '切换日/夜模式',
     'view.path':          '路径导览',
     'view.global':        '全局总览',
     'view.dir':           '目录',
@@ -71,6 +79,7 @@ const TRANSLATIONS = {
     'path.apply':         '会用',
     'path.understand':    '懂原理',
     'path.mastered_of':   '已掌握 {n} / {total}',
+    'path.compare_hint': '也可以切换上方按钮，对比“会用”和“懂原理”两条路径。',
 
     // Status
     'status.mastered':    '已掌握',
@@ -81,13 +90,19 @@ const TRANSLATIONS = {
     // Quiz
     'quiz.title':         '知识测评',
     'quiz.subtitle':      '通过测评了解你的 AI 知识现状，定向提升薄弱领域',
-    'quiz.diagnostic.title': '🔍 全局诊断',
-    'quiz.diagnostic.desc':  '30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平\n完成后获得雷达图分析 + 个性化推荐',
+    'quiz.diagnostic.title': '完整诊断',
+    'quiz.diagnostic.desc':  '30 道题（每方向 2 题），约 12 分钟；可随时退出，已答记录会保留。\n完成后获得雷达图分析 + 个性化推荐',
     'quiz.diagnostic.notice': '<strong>诊断不是考试。</strong>不会的题帮助系统找到你的学习起点，而不是评判你的水平。题目涵盖技术深度，部分偏难属正常现象。不确定可点击"跳过"继续。',
-    'btn.start_diagnostic': '开始全局诊断 →',
+    'btn.start_diagnostic': '开始完整诊断 →',
     'quiz.or_choose':     '── 或选择单个方向测评 ──',
     'quiz.flow.quit':     '← 退出',
     'quiz.flow.subtitle': '回答完所有题目',
+    'quiz.dir_topic':     '方向：{dir}  ·  主题：{topic}',
+    'quiz.topic_only':    '主题：{topic}',
+    'quiz.quit_confirm':  '确认退出？已答进度会保留，下次可继续。',
+    'quiz.subtitle_topic': '{n} 道题 · 覆盖 {topics} 个主题',
+    'quiz.subtitle_direction': '{n} 道题 · 覆盖 {topics} 个主题',
+    'quiz.subtitle_diagnostic': '{n} 道题 · 覆盖全部 15 个方向',
     'btn.next':           '下一题 →',
     'btn.submit':         '提交结果 ✓',
     'quiz.check_failed':  '校验失败，请检查网络后重试',
@@ -95,13 +110,13 @@ const TRANSLATIONS = {
     'quiz.submit_failed': '提交失败: {msg}',
 
     // Result
-    'result.title':         '📊 诊断结果',
+    'result.title':         '诊断结果',
     'result.accuracy':      '正确率',
     'result.correct_of':    '正确 {n} / {total} 题',
     'result.direction_scores': '各方向得分',
-    'result.weak_title':    '⚠️ 建议重点学习方向',
+    'result.weak_title':    '建议重点学习方向',
     'result.weak_hint':     '点击上方标签开始针对性测评',
-    'result.next_title':    '🚀 推荐下一步（从这里开始）',
+    'result.next_title':    '推荐下一步（从这里开始）',
     'result.next_view':     '查看 →',
     'btn.redo':             '重新诊断',
     'btn.view_graph':       '查看图谱 →',
@@ -118,7 +133,7 @@ const TRANSLATIONS = {
     'stat.unknown':         '未测评',
     'progress.radar_title': '掌握度雷达图',
     'progress.areas_title': '大类进度',
-    'progress.next_title': '🚀 下一步推荐',
+    'progress.next_title': '下一步推荐',
     'progress.heatmap_title': '知识体系总览',
 
     // Search
@@ -145,6 +160,7 @@ const TRANSLATIONS = {
     // Directions quiz card
     'dir.topics_n':       '{n} 个主题',
     'dir.questions_n':    '{n} 道题',
+    'dir.questions_dynamic': '题数按题库加载',
 
     // Node info panel meta
     'meta.difficulty':    '难度',
@@ -159,15 +175,23 @@ const TRANSLATIONS = {
   },
 
   en: {
-    'title':              'AI Knowledge Graph',
-    'tab.graph':          '🗺 Graph',
-    'tab.quiz':           '📝 Quiz',
-    'tab.progress':       '📊 Progress',
-    'search.placeholder': '🔍 Search topics, e.g.: RAG, fine-tuning, Agent…',
+    'title':              'Super Alignment',
+    'tab.graph':          'Map',
+    'tab.quiz':           'Diagnostic',
+    'tab.progress':       'Progress',
+    'search.placeholder': 'Search topics, e.g.: RAG, fine-tuning, Agent…',
     'badge.loading':      'Loading...',
     'badge.mastered':     'Mastered',
 
-    'sidebar.title':      'Knowledge Graph',
+    'sidebar.title':      'Learning Map',
+    'cockpit.title':      'Find your weak spots, then export to your own note tools.',
+    'cockpit.next_label': 'Recommended next',
+    'cockpit.no_rec':     'Run a diagnostic to get recommendations.',
+    'cockpit.primary':    'Diagnose now →',
+    'cockpit.path_link':  'View paths',
+    'cockpit.search_link':'Search',
+    'cockpit.jump_toast': 'Switched to the topic view. Use “Global View” to return.',
+    'theme.toggle':       'Toggle light/dark mode',
     'view.path':          'Learning Path',
     'view.global':        'Global View',
     'view.dir':           'Directory',
@@ -219,6 +243,7 @@ const TRANSLATIONS = {
     'path.apply':         'Applied',
     'path.understand':    'Deep Dive',
     'path.mastered_of':   'Mastered {n} / {total}',
+    'path.compare_hint': 'Use the buttons above to compare Applied vs Deep Dive paths.',
 
     'status.mastered':    'Mastered',
     'status.learning':    'Learning',
@@ -227,26 +252,32 @@ const TRANSLATIONS = {
 
     'quiz.title':         'Knowledge Quiz',
     'quiz.subtitle':      'Discover your AI knowledge gaps and get targeted recommendations',
-    'quiz.diagnostic.title': '🔍 Global Diagnostic',
-    'quiz.diagnostic.desc':  '30 questions (2 per direction) — evaluates your knowledge across all 15 directions.\nGet a radar chart analysis + personalized recommendations.',
+    'quiz.diagnostic.title': 'Full Diagnostic',
+    'quiz.diagnostic.desc':  '30 questions (2 per direction), about 12 minutes. You can quit anytime and resume later.\nGet a radar chart analysis + personalized recommendations.',
     'quiz.diagnostic.notice': '<strong>This is not an exam.</strong> Skipping hard questions helps the system find your starting point — it doesn\'t judge your level. Some questions are intentionally technical. Use "Skip" if unsure.',
-    'btn.start_diagnostic': 'Start Diagnostic →',
+    'btn.start_diagnostic': 'Start Full Diagnostic →',
     'quiz.or_choose':     '── Or choose a single direction ──',
     'quiz.flow.quit':     '← Quit',
     'quiz.flow.subtitle': 'Answer all questions',
+    'quiz.dir_topic':     'Direction: {dir}  ·  Topic: {topic}',
+    'quiz.topic_only':    'Topic: {topic}',
+    'quiz.quit_confirm':  'Quit? Your answered progress will be saved for next time.',
+    'quiz.subtitle_topic': '{n} questions · covering {topics} topic',
+    'quiz.subtitle_direction': '{n} questions · covering {topics} topics',
+    'quiz.subtitle_diagnostic': '{n} questions · covering all 15 directions',
     'btn.next':           'Next →',
     'btn.submit':         'Submit ✓',
     'quiz.check_failed':  'Verification failed, please check your network and retry',
     'quiz.load_failed':   'Failed to load questions: {msg}',
     'quiz.submit_failed': 'Submission failed: {msg}',
 
-    'result.title':         '📊 Diagnostic Results',
+    'result.title':         'Diagnostic Results',
     'result.accuracy':      'Accuracy',
     'result.correct_of':    '{n} / {total} correct',
     'result.direction_scores': 'Scores by Direction',
-    'result.weak_title':    '⚠️ Recommended Focus Areas',
+    'result.weak_title':    'Recommended Focus Areas',
     'result.weak_hint':     'Click a tag to start targeted practice',
-    'result.next_title':    '🚀 Recommended Next Steps',
+    'result.next_title':    'Recommended Next Steps',
     'result.next_view':     'View →',
     'btn.redo':             'Redo Diagnostic',
     'btn.view_graph':       'View Graph →',
@@ -262,7 +293,7 @@ const TRANSLATIONS = {
     'stat.unknown':         'Not Tested',
     'progress.radar_title': 'Mastery Radar',
     'progress.areas_title': 'Area Progress',
-    'progress.next_title': '🚀 Recommended Next Steps',
+    'progress.next_title': 'Recommended Next Steps',
     'progress.heatmap_title': 'Knowledge Overview',
 
     'search.found':       'Found {n} results',
@@ -285,6 +316,7 @@ const TRANSLATIONS = {
 
     'dir.topics_n':       '{n} topics',
     'dir.questions_n':    '{n} questions',
+    'dir.questions_dynamic': 'Questions load from bank',
 
     // Node info panel meta
     'meta.difficulty':    'Difficulty',
@@ -343,6 +375,11 @@ function _applyDataI18n() {
     const key = el.dataset.i18nHtml;
     const val = t(key);
     if (val && val !== key) el.innerHTML = val;
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.dataset.i18nTitle;
+    const val = t(key);
+    if (val && val !== key) el.title = val;
   });
   // Update lang toggle button label
   const btn = document.getElementById('lang-toggle');

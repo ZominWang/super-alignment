@@ -3,32 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 知识图谱</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <title>Super Alignment｜超级对齐</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=frontend-cockpit-6">
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/i18n.js?v=frontend-cockpit-6"></script>
 </head>
 <body>
 
+<!-- First-run onboarding: value in 5 minutes -->
+<div class="intro-overlay hidden" id="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+  <div class="intro-card">
+    <div class="intro-kicker">Super Alignment · 超级对齐</div>
+    <h1 id="intro-title">AI 学习者的薄弱方向定位器</h1>
+    <p class="intro-subtitle">一张 74 个主题的 AI 知识地图：先定位、再导航、最后导出到你自己的笔记工具。</p>
+    <div class="intro-capabilities">
+      <div class="intro-capability"><span class="intro-icon">⌁</span><strong>快速定位</strong><em>5 题看见薄弱方向</em></div>
+      <div class="intro-capability"><span class="intro-icon">↳</span><strong>路径导航</strong><em>跟着路线少走弯路</em></div>
+      <div class="intro-capability"><span class="intro-icon">⇩</span><strong>带走内容</strong><em>Obsidian / Anki / Markdown</em></div>
+    </div>
+    <div class="intro-actions">
+      <button class="intro-primary" id="intro-quickstart" type="button">1 分钟快速定位 →</button>
+      <button class="intro-secondary" id="intro-browse" type="button">直接浏览</button>
+    </div>
+    <div class="intro-privacy">✓ 全部学习状态保存在你本机，不会上传</div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="export-modal-overlay" onclick="closeExportPreview()"></div>
+<div class="export-preview-modal hidden" id="export-preview-modal" role="dialog" aria-modal="true">
+  <div class="export-preview-header">
+    <div>
+      <div class="export-preview-kicker">Content Distribution</div>
+      <h3 id="export-preview-title">导出学习材料</h3>
+    </div>
+    <button class="search-results-close" onclick="closeExportPreview()">✕</button>
+  </div>
+  <div class="export-preview-body" id="export-preview-body"></div>
+  <div class="export-preview-actions">
+    <button class="btn-secondary" onclick="closeExportPreview()">取消</button>
+    <button class="btn-primary" id="export-preview-confirm">开始下载</button>
+  </div>
+</div>
+
 <!-- 顶部导航 -->
 <div class="topbar">
-  <div class="topbar-title">AI <span data-i18n="title">知识图谱</span></div>
+  <div class="topbar-title"><span class="brand-main">Super Alignment</span><span class="brand-sub">超级对齐</span></div>
   <div class="tabs">
-    <button class="tab-btn active" data-tab="graph" data-i18n="tab.graph">🗺 知识图谱</button>
-    <button class="tab-btn" data-tab="quiz" data-i18n="tab.quiz">📝 测评</button>
-    <button class="tab-btn" data-tab="progress" data-i18n="tab.progress">📊 进度看板</button>
+    <button class="tab-btn active" data-tab="graph" data-i18n="tab.graph">知识地图</button>
+    <button class="tab-btn" data-tab="quiz" data-i18n="tab.quiz">诊断</button>
+    <button class="tab-btn" data-tab="progress" data-i18n="tab.progress">进度</button>
   </div>
   <div class="topbar-right">
     <div class="search-wrap" id="search-wrap">
       <input type="text" class="search-input" id="search-input"
-             placeholder="🔍 搜索知识点，如：RAG、工程、fine-tuning…"
+             placeholder="搜索知识点，如：RAG、工程、fine-tuning…"
              data-i18n="search.placeholder"
              autocomplete="off" />
-      <button class="search-clear" id="search-clear" title="清除">✕</button>
+      <button class="search-clear" id="search-clear" title="清除" style="visibility:hidden">✕</button>
     </div>
-    <div class="progress-badge" id="topbar-badge" data-i18n="badge.loading">加载中...</div>
+    <div class="progress-badge" id="topbar-badge" style="visibility:hidden"></div>
+    <div class="top-export-menu">
+      <button class="top-export-trigger" type="button">导出</button>
+      <div class="top-export-popover">
+        <button type="button" onclick="callExport('obsidian')">Obsidian Vault</button>
+        <button type="button" onclick="callExport('anki')">Anki CSV</button>
+        <button type="button" onclick="callExport('markdown')">Markdown Zip</button>
+      </div>
+    </div>
     <button class="lang-toggle-btn" id="lang-toggle" title="Switch language / 切换语言" onclick="setLang(getLang() === 'zh' ? 'en' : 'zh')">EN</button>
-    <button class="theme-toggle-btn" id="theme-toggle" title="切换日/夜模式">☀</button>
+    <button class="theme-toggle-btn" id="theme-toggle" data-i18n-title="theme.toggle" title="切换日/夜模式">☀</button>
   </div>
 </div>
 
@@ -72,21 +115,36 @@
   <div class="tab-panel active" id="panel-graph">
     <div class="graph-sidebar">
       <div class="sidebar-header">
-        <span data-i18n="sidebar.title">知识图谱</span>
+        <span data-i18n="sidebar.title">学习地图</span>
         <div class="layer-indicator">
           <div class="layer-dot active" id="ld-1" title="大类"></div>
           <div class="layer-dot" id="ld-2" title="方向"></div>
           <div class="layer-dot" id="ld-3" title="主题"></div>
         </div>
       </div>
-      <div class="view-toggle-bar">
-        <button class="view-toggle-btn" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
+      <div class="learning-cockpit">
+        <div class="cockpit-kicker">Bridge Learning Map</div>
+        <div class="cockpit-title" data-i18n="cockpit.title">先定位薄弱方向，再导出到你的笔记工具继续学习</div>
+        <div class="cockpit-metrics" id="cockpit-metrics">
+          <div class="cockpit-metric" id="cockpit-metric-el" role="button" tabindex="0" title="点击查看详细分布"><span>掌握进度</span><strong>加载中…</strong></div>
+          <div class="cockpit-next" id="cockpit-next"><span data-i18n="cockpit.next_label">推荐下一步</span><em data-i18n="cockpit.no_rec">完成诊断后这里会出现推荐。</em></div>
+        </div>
+        <div class="cockpit-actions">
+          <button class="cockpit-primary" onclick="switchToTab('quiz')" data-i18n="cockpit.primary">立即诊断 →</button>
+          <button class="cockpit-secondary cockpit-link" onclick="setGraphView('path')" data-i18n="cockpit.path_link">查看路径</button>
+          <button class="cockpit-secondary cockpit-link" onclick="document.getElementById('search-input').focus()" data-i18n="cockpit.search_link">搜索</button>
+        </div>
+      </div>
+
+      <div class="view-toggle-bar view-toggle-bar-redesign">
         <button class="view-toggle-btn active" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
         <button class="view-toggle-btn" id="btn-dir-view" data-i18n="view.dir" onclick="setGraphView('dir')">目录</button>
-        <!-- 领域浏览：通过双击节点或"查看主题图"按钮进入，不作为顶级导航入口 -->
+        <button class="view-toggle-btn" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
         <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')" style="display:none">领域浏览</button>
       </div>
-      <div class="graph-legend">
+
+      <details class="graph-legend" open>
+        <summary>怎么看这张图</summary>
         <div class="legend-group-title" data-i18n="legend.domains">知识域</div>
         <div class="legend-item" data-area="foundations" onclick="filterByArea('foundations')"><div class="legend-dot" style="background:#58A6FF"></div><span data-i18n="area.foundation">基础理论</span></div>
         <div class="legend-item" data-area="llm" onclick="filterByArea('llm')"><div class="legend-dot" style="background:#F85149"></div><span data-i18n="area.llm">大语言模型</span></div>
@@ -99,7 +157,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div><span data-i18n="status.learning">学习中</span></div>
         <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div><span data-i18n="status.needs_work">需要加强</span></div>
         <div class="legend-item"><div class="legend-dot" style="background:#4A4A6A;border:1px solid #8B949E"></div><span data-i18n="status.unknown">未测评</span></div>
-        <div class="legend-ring-note" data-i18n="legend.ring">○ 外环弧度 = 聚合掌握进度</div>
+        <div class="legend-ring-note" data-i18n="legend.ring">○ 绿色进度环 = 已掌握比例</div>
         <div class="legend-sep"></div>
         <div class="legend-group-title" data-i18n="legend.size">节点大小</div>
         <div class="legend-node-sizes">
@@ -109,25 +167,21 @@
           </div>
           <div class="legend-size-item">
             <svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#4A4A6A" stroke="#888" stroke-width="1"/></svg>
-            <span data-i18n="legend.size.topic">主题（大=重要）</span>
+            <span data-i18n="legend.size.topic">主题大小 = 重要度</span>
           </div>
         </div>
         <div class="legend-sep"></div>
         <div class="legend-group-title" data-i18n="legend.lines">连线含义</div>
         <div class="legend-line-item">
           <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#58A6FF" stroke-width="1.2" stroke-dasharray="4,3"/></svg>
-          <span data-i18n="legend.line.prereq">前置依赖</span>
+          <span data-i18n="legend.line.prereq">虚线 = 前置依赖</span>
         </div>
-        <!-- Tag filter indicator — shown when a tag is active -->
         <div id="tag-filter-indicator" style="display:none;margin-top:8px;cursor:pointer;font-size:11px;background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);border-radius:12px;padding:3px 8px;color:var(--accent);text-align:center" onclick="filterByTag(null)"></div>
-      </div>
-
-      <!-- 目录浏览面板 -->
+      </details>
       <div class="dir-panel hidden" id="dir-panel">
         <div class="dir-tree" id="dir-tree"></div>
       </div>
 
-      <!-- 路径导览面板 -->
       <div class="path-panel hidden" id="path-panel">
         <div class="path-intent-bar">
           <button class="path-intent-btn active" id="btn-apply-path" onclick="setActivePath('apply')" data-i18n="path.apply">会用</button>
@@ -140,18 +194,22 @@
 
       <div class="node-info-panel" id="node-info-panel">
         <div class="node-info-empty" id="node-info-empty-msg">
-          <div class="onboard-title">AI / LLM / Agent 知识图谱</div>
-          <div class="onboard-ways">
-            <div class="onboard-way">🗺 <strong>浏览</strong>：单击节点查看详情，双击深入</div>
-            <div class="onboard-way">🔍 <strong>搜索</strong>：顶部搜索框，快捷键 ⌘K</div>
-            <div class="onboard-way">📝 <strong>测评</strong>：点击"测评"Tab 开始诊断</div>
-            <div class="onboard-way">📂 <strong>目录</strong>：切换"目录"视图完整浏览</div>
+          <div class="onboard-title">3 步上手 Super Alignment</div>
+          <div class="onboard-subtitle">这里是地图；你的笔记工具是目的地。</div>
+          <div class="onboard-checklist" id="onboard-checklist">
+            <div class="onboard-step" data-step="node"><span></span><strong>单击一个节点</strong><em>看懂主题位置与下一步动作</em></div>
+            <div class="onboard-step" data-step="quiz"><span></span><strong>完成快速定位</strong><em>让推荐从真实答题产生</em></div>
+            <div class="onboard-step" data-step="export"><span></span><strong>导出一次材料</strong><em>回到你熟悉的 Obsidian / Anki / Markdown</em></div>
           </div>
-          <div class="onboard-hint">单击节点后此处显示详情</div>
         </div>
       </div>
     </div>
     <div class="graph-canvas-wrap">
+      <!-- 节点浮动详情卡片 -->
+      <div id="node-float-card" class="node-float-card hidden">
+        <button class="nfc-close" onclick="clearNodeFocus()" title="关闭">✕</button>
+        <div class="nfc-body" id="nfc-body"></div>
+      </div>
       <div class="graph-breadcrumb" id="graph-breadcrumb">
         <button class="crumb-back-global" id="crumb-back-global" onclick="setGraphView('global')" style="display:none" title="返回全局总览">← 全局</button>
         <span class="crumb" id="crumb-root" onclick="resetToAreas()">全部大类</span>
@@ -167,36 +225,35 @@
 
   <!-- Tab 2: 测评 -->
   <div class="tab-panel" id="panel-quiz">
-
-    <!-- 测评首页 -->
     <div id="quiz-home-view">
       <div class="quiz-home">
         <div class="quiz-home-header">
           <h2 data-i18n="quiz.title">知识测评</h2>
           <p data-i18n="quiz.subtitle">通过测评了解你的 AI 知识现状，定向提升薄弱领域</p>
         </div>
-
-        <!-- 全局诊断 -->
+        <div class="quiz-draft-card hidden" id="quiz-draft-card"></div>
+        <div class="diagnostic-card diagnostic-card-quick">
+          <div class="diagnostic-pill">推荐新手先做</div>
+          <h3>快速定位</h3>
+          <p>5 道入门题，约 1 分钟。先得到粗略薄弱方向，再决定是否做完整诊断。</p>
+          <button class="btn-primary" id="btn-start-quick-diagnostic">开始快速定位 →</button>
+        </div>
         <div class="diagnostic-card">
-          <h3 data-i18n="quiz.diagnostic.title">🔍 全局诊断</h3>
-          <p data-i18n="quiz.diagnostic.desc">30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平<br>完成后获得雷达图分析 + 个性化推荐</p>
+          <h3 data-i18n="quiz.diagnostic.title">完整诊断</h3>
+          <p data-i18n="quiz.diagnostic.desc">30 道题（每方向 2 题），约 12 分钟；可随时退出，已答记录会保留。<br>完成后获得雷达图分析 + 个性化推荐</p>
           <div class="diagnostic-notice" data-i18n-html="quiz.diagnostic.notice">
             <strong>诊断不是考试。</strong>不会的题帮助系统找到你的学习起点，而不是评判你的水平。题目涵盖技术深度，部分偏难属正常现象。不确定可点击"跳过"继续。
           </div>
-          <button class="btn-primary" id="btn-start-diagnostic" data-i18n="btn.start_diagnostic">开始全局诊断 →</button>
+          <button class="btn-primary" id="btn-start-diagnostic" data-i18n="btn.start_diagnostic">开始完整诊断 →</button>
         </div>
-
-        <!-- 方向单独测评 -->
         <div class="directions-section">
           <h3 data-i18n="quiz.or_choose">── 或选择单个方向测评 ──</h3>
           <div class="directions-grid" id="directions-grid">
-            <!-- 动态渲染 -->
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 测评进行中 -->
     <div id="quiz-flow-view" class="hidden">
       <div class="quiz-flow">
         <div class="quiz-flow-header">
@@ -213,7 +270,6 @@
         </div>
         <div class="quiz-direction-label" id="quiz-direction-label"></div>
         <div id="quiz-question-area">
-          <!-- 动态渲染 -->
         </div>
         <div class="quiz-nav">
           <span class="quiz-counter" id="quiz-counter">0 / 0</span>
@@ -225,15 +281,13 @@
       </div>
     </div>
 
-    <!-- 诊断结果 -->
     <div id="quiz-result-view" class="hidden">
       <div class="result-panel">
         <div class="result-header">
-          <h2 data-i18n="result.title">📊 诊断结果</h2>
+          <h2 data-i18n="result.title">诊断结果</h2>
           <div class="result-score-big" id="result-score-big">—</div>
           <p id="result-score-label" data-i18n="result.accuracy">正确率</p>
         </div>
-
         <div class="result-layout">
           <div class="radar-container">
             <svg id="radar-svg" width="300" height="300"></svg>
@@ -243,18 +297,15 @@
             <div id="direction-scores-list"></div>
           </div>
         </div>
-
         <div class="weak-section" id="weak-section">
-          <h4 data-i18n="result.weak_title">⚠️ 建议重点学习方向</h4>
+          <h4 data-i18n="result.weak_title">建议重点学习方向</h4>
           <div class="weak-tags" id="weak-tags"></div>
           <p style="font-size:13px;color:var(--text-muted)" data-i18n="result.weak_hint">点击上方标签开始针对性测评</p>
         </div>
-
         <div class="next-steps-section" id="next-steps-section">
-          <h4 data-i18n="result.next_title">🚀 推荐下一步（从这里开始）</h4>
+          <h4 data-i18n="result.next_title">推荐下一步（从这里开始）</h4>
           <div class="next-steps-list" id="next-steps-list"></div>
         </div>
-
         <div class="result-actions">
           <button class="btn-secondary" id="btn-redo-diagnostic" data-i18n="btn.redo">重新诊断</button>
           <button class="btn-secondary" id="btn-view-graph-from-diagnostic" data-i18n="btn.view_graph">查看图谱 →</button>
@@ -263,7 +314,6 @@
       </div>
     </div>
 
-    <!-- 方向测评结果 -->
     <div id="direction-result-view" class="hidden">
       <div class="result-panel">
         <div class="result-header">
@@ -271,12 +321,10 @@
           <div class="result-score-big" id="dir-result-score">—</div>
           <p id="dir-result-label">正确率</p>
         </div>
-
         <div class="scores-container" style="margin-bottom:16px;max-height:none;">
           <h4 data-i18n="dir_result.topics">各主题掌握情况</h4>
           <div id="dir-topic-results"></div>
         </div>
-
         <div class="result-actions">
           <button class="btn-secondary" id="btn-view-direction-graph" data-i18n="btn.view_dir_graph">查看此方向图谱 →</button>
           <button class="btn-primary" id="btn-back-to-quiz-home-2" data-i18n="btn.back_home">返回测评首页</button>
@@ -289,6 +337,7 @@
   <!-- Tab 3: 进度看板 -->
   <div class="tab-panel" id="panel-progress">
     <div class="progress-page">
+      <div class="weekly-goal-card" id="weekly-goal-card"></div>
       <div class="progress-summary" id="progress-summary">
         <div class="stat-card stat-total"><div class="stat-value" id="stat-total">—</div><div class="stat-label" data-i18n="stat.total">总主题数</div></div>
         <div class="stat-card stat-mastered"><div class="stat-value" id="stat-mastered">—</div><div class="stat-label" data-i18n="stat.mastered">已掌握</div></div>
@@ -298,13 +347,26 @@
       </div>
 
       <div class="progress-next-steps" id="progress-next-steps" style="display:none">
-        <h3 data-i18n="progress.next_title">🚀 下一步推荐</h3>
+        <h3 data-i18n="progress.next_title">下一步推荐</h3>
         <div class="next-steps-chips" id="progress-next-chips"></div>
       </div>
 
       <div class="progress-heatmap-section" id="progress-heatmap-section">
         <h3 data-i18n="progress.heatmap_title">知识体系总览</h3>
         <div class="progress-heatmap" id="progress-heatmap"></div>
+      </div>
+
+      <div class="privacy-panel">
+        <details>
+          <summary>使用数据 / 隐私</summary>
+          <div class="privacy-panel-body">
+            <div id="privacy-events-summary">本地事件用于帮你理解学习动作，不会上传。</div>
+            <div class="privacy-actions">
+              <button class="btn-secondary" onclick="downloadUsageData()">导出本地使用数据</button>
+              <button class="btn-secondary" onclick="clearUsageData()">清空本地使用数据</button>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="progress-layout">
@@ -322,6 +384,6 @@
 
 </div>
 
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v=frontend-cockpit-6"></script>
 </body>
 </html>
