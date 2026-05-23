@@ -1799,8 +1799,8 @@ function renderGlobalView() {
           ? 'More labels are visible for scanning. Double-click a direction to enter details.'
           : '已显示更多主题标签，便于巡检；双击方向可进入细节。')
         : (getLang() === 'en'
-          ? 'Global view shows structure and density. Click a direction to inspect topics.'
-          : '全局视图只承担结构与密度感知；点击方向查看具体主题。'),
+          ? 'Global view shows structure and density. Click a node for actions; double-click a direction for topics.'
+          : '全局视图承担结构与密度感知；单击节点看动作，双击方向进主题。'),
       meta: getLang() === 'en'
         ? 'Node size = importance · number = topics in direction'
         : '节点大小=重要度 · 数字=方向下主题数',
