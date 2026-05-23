@@ -14,3 +14,4 @@ exports/
 .claude/
 docs/feedback-assets/
 docs/*.md
+docs/.obsidian/

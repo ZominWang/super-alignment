@@ -1,10 +1,12 @@
 """
 build.py — 将 vault/ 内容编译为静态数据文件 web/static/js/data.js
 
-用法:  python build.py
-
-生成 data.js 后，直接用浏览器打开 web/templates/index.html 即可运行。
-无需 Flask、无需 Python 后端。
+用法:
+  python build.py                       仅编译 data.js
+  python build.py --validate            校验 vault 文件完整性
+  python build.py --export obsidian     编译 + 导出 Obsidian Vault
+  python build.py --export all          编译 + 全量导出
+  python build.py --serve               编译 + 启动本地服务器
 """
 import json
 import os
@@ -274,6 +276,135 @@ def build():
     print(f"  搜索索引: {len(search_index)} 条")
 
     return data
+
+
+# ════════════════════════════════════════════════════════════════
+# Vault 文件完整性校验
+# ════════════════════════════════════════════════════════════════
+
+REQUIRED_TOPIC_KEYS = {'id', 'name', 'area', 'direction'}
+REQUIRED_AREA_KEYS  = {'id', 'name'}
+REQUIRED_DIR_KEYS   = {'id', 'name', 'area'}
+
+
+def validate():
+    """校验 vault/ 内容完整性，返回 (error_count, warning_count)。"""
+    areas = load_areas()
+    directions = load_directions()
+    topics = load_topics()
+    paths = load_learning_paths()
+
+    area_ids = {a['id'] for a in areas}
+    dir_ids = {d['id'] for d in directions}
+    topic_ids = {t['id'] for t in topics}
+    area_map = {a['id']: a for a in areas}
+    dir_map = {d['id']: d for d in directions}
+
+    errors, warnings = 0, 0
+
+    # ── Area 校验 ────────────────────────────────────
+    for a in areas:
+        aid = a.get('id', '?')
+        missing = REQUIRED_AREA_KEYS - set(a.keys())
+        if missing:
+            print(f"✗ Area \"{aid}\" 缺少字段: {', '.join(missing)}")
+            errors += 1
+        if a.get('direction_count', 0) != len([d for d in directions if d.get('area') == aid]):
+            print(f"⚠ Area \"{aid}\" direction_count 与实际不符")
+            warnings += 1
+
+    # ── Direction 校验 ───────────────────────────────
+    for d in directions:
+        did = d.get('id', '?')
+        missing = REQUIRED_DIR_KEYS - set(d.keys())
+        if missing:
+            print(f"✗ Direction \"{did}\" 缺少字段: {', '.join(missing)}")
+            errors += 1
+        if d.get('area') and d['area'] not in area_ids:
+            print(f"✗ Direction \"{did}\" 引用了不存在的 area: \"{d['area']}\"")
+            errors += 1
+        actual_count = len([t for t in topics if t.get('direction') == did])
+        if d.get('topic_count', 0) != actual_count:
+            print(f"⚠ Direction \"{did}\" topic_count={d.get('topic_count')} 实际应为 {actual_count}")
+            warnings += 1
+
+    # ── Topic 校验 ───────────────────────────────────
+    orphan_topics = []  # topics with no quiz
+    dead_prereqs = {}   # topic -> [dead prereq]
+
+    for t in topics:
+        tid = t.get('id', '?')
+        missing = REQUIRED_TOPIC_KEYS - set(t.keys())
+        if missing:
+            print(f"✗ Topic \"{tid}\" 缺少字段: {', '.join(missing)}")
+            errors += 1
+            continue
+
+        if t.get('area') not in area_ids:
+            print(f"✗ Topic \"{tid}\" 引用了不存在的 area: \"{t['area']}\"")
+            errors += 1
+        if t.get('direction') not in dir_ids:
+            print(f"✗ Topic \"{tid}\" 引用了不存在的 direction: \"{t['direction']}\"")
+            errors += 1
+
+        diff = t.get('difficulty', 3)
+        imp = t.get('importance', 3)
+        if not (1 <= diff <= 5):
+            print(f"✗ Topic \"{tid}\" difficulty={diff} 不在 1-5 范围")
+            errors += 1
+        if not (1 <= imp <= 5):
+            print(f"✗ Topic \"{tid}\" importance={imp} 不在 1-5 范围")
+            errors += 1
+
+        # 检查前置知识引用
+        for prereq in t.get('prerequisites', []):
+            if prereq not in topic_ids:
+                if tid not in dead_prereqs:
+                    dead_prereqs[tid] = []
+                dead_prereqs[tid].append(prereq)
+
+            # 警告：前置知识来自不同领域
+            prereq_topic = next((x for x in topics if x['id'] == prereq), None)
+            if prereq_topic and prereq_topic.get('area') != t.get('area'):
+                area_a = area_map.get(t['area'], {}).get('name', t['area'])
+                area_b = area_map.get(prereq_topic.get('area'), {}).get('name', prereq_topic.get('area'))
+                print(f"⚠ Topic \"{tid}\"（{area_a}）的前置 \"{prereq}\" 属于 {area_b}")
+                warnings += 1
+
+        # 检查 Quiz
+        body = t.get('body', '') or ''
+        quiz_match = re.search(r'## Quiz', body)
+        if not quiz_match:
+            orphan_topics.append(tid)
+
+    # 打印汇总
+    for tid, dead in dead_prereqs.items():
+        print(f"✗ Topic \"{tid}\" 引用了不存在的前置: {', '.join(dead)}")
+        errors += len(dead)
+
+    if orphan_topics:
+        print(f"⚠ {len(orphan_topics)} 个主题没有 Quiz 模块: "
+              f"{', '.join(orphan_topics[:5])}"
+              + ('，…' if len(orphan_topics) > 5 else ''))
+        warnings += 1
+
+    # ── 学习路径校验 ────────────────────────────────
+    for p in paths:
+        pid = p.get('id', '?')
+        for i, step in enumerate(p.get('steps', [])):
+            sid = step.get('id', step) if isinstance(step, dict) else str(step)
+            if sid not in topic_ids:
+                print(f"✗ Path \"{pid}\" 第 {i+1} 步引用了不存在主题: \"{sid}\"")
+                errors += 1
+
+    # ── 汇总 ─────────────────────────────────────────
+    total = len(areas) + len(directions) + len(topics)
+    if errors == 0 and warnings == 0:
+        print(f"✓ 全部 {total} 个文件校验通过，没有错误或警告。")
+    else:
+        print(f"\n── 校验完成: {total} 文件, {errors} 错误, {warnings} 警告 ──")
+
+    return errors, warnings
 
 
 # ════════════════════════════════════════════════════════════════
@@ -548,11 +679,24 @@ def run_export(data, target):
 
 if __name__ == '__main__':
     import argparse
+    import subprocess
+    import signal
+
     parser = argparse.ArgumentParser(description='编译 vault/ 内容为静态数据文件')
+    parser.add_argument('--validate', '-v', action='store_true',
+                        help='校验 vault 文件完整性（不编译）')
     parser.add_argument('--export', '-e', nargs='*',
                         choices=['obsidian', 'anki', 'markdown', 'all'],
                         help='额外导出: obsidian, anki, markdown, all')
+    parser.add_argument('--serve', '-s', action='store_true',
+                        help='编译后启动本地服务器')
+    parser.add_argument('--port', '-p', type=int, default=5001,
+                        help='服务器端口（默认 5001）')
     args = parser.parse_args()
+
+    if args.validate:
+        errors, _ = validate()
+        sys.exit(0 if errors == 0 else 1)
 
     d = build()
     if args.export:
@@ -560,3 +704,16 @@ if __name__ == '__main__':
         targets = args.export if args.export else ['all']
         for t in targets:
             run_export(d, t)
+
+    if args.serve:
+        web_dir = os.path.join(ROOT, 'web')
+        print(f"\n启动服务器: http://localhost:{args.port}")
+        print("按 Ctrl+C 停止\n")
+
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'http.server', str(args.port), '--directory', web_dir],
+                check=True,
+            )
+        except KeyboardInterrupt:
+            print("\n服务器已停止。")
