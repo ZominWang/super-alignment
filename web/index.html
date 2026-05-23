@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 知识图谱</title>
+  <link rel="stylesheet" href="static/css/style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="static/js/data.js"></script>
+  <script src="static/js/i18n.js"></script>
+  <script src="static/js/api-shim.js"></script>
+  <script src="static/js/export.js"></script>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="topbar">
+  <div class="topbar-title">AI <span data-i18n="title">知识图谱</span></div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="graph" data-i18n="tab.graph">🗺 知识图谱</button>
+    <button class="tab-btn" data-tab="quiz" data-i18n="tab.quiz">📝 测评</button>
+    <button class="tab-btn" data-tab="progress" data-i18n="tab.progress">📊 进度看板</button>
+  </div>
+  <div class="topbar-right">
+    <div class="search-wrap" id="search-wrap">
+      <input type="text" class="search-input" id="search-input"
+             placeholder="🔍 搜索知识点，如：RAG、工程、fine-tuning…"
+             data-i18n="search.placeholder"
+             autocomplete="off" />
+      <button class="search-clear" id="search-clear" title="清除">✕</button>
+    </div>
+    <div class="progress-badge" id="topbar-badge" data-i18n="badge.loading">加载中...</div>
+    <button class="lang-toggle-btn" id="lang-toggle" title="Switch language / 切换语言" onclick="setLang(getLang() === 'zh' ? 'en' : 'zh')">EN</button>
+    <button class="theme-toggle-btn" id="theme-toggle" title="切换日/夜模式">☀</button>
+  </div>
+</div>
+
+<!-- 搜索结果面板 -->
+<div class="search-overlay hidden" id="search-overlay" onclick="closeSearch()"></div>
+<div class="search-results-panel hidden" id="search-results-panel">
+  <div class="search-results-header">
+    <span id="search-result-count">搜索结果</span>
+    <button class="search-results-close" onclick="closeSearch()">✕</button>
+  </div>
+  <div class="search-results-body" id="search-results-body"></div>
+</div>
+
+<!-- 课程探索弹窗 -->
+<div class="modal-overlay hidden" id="course-modal-overlay" onclick="closeCourseModal()"></div>
+<div class="course-modal hidden" id="course-modal">
+  <div class="course-modal-header">
+    <div>
+      <div class="course-modal-title" id="course-modal-title">课程探索</div>
+      <div class="course-modal-subtitle" data-i18n="course.subtitle">将下方提示词粘贴到你的本地 AI Agent（Claude Code / Cursor 等）中</div>
+    </div>
+    <button class="search-results-close" onclick="closeCourseModal()">✕</button>
+  </div>
+  <div class="course-modal-body">
+    <div class="course-modal-phase2-note" data-i18n="course.note">
+      💡 本功能后续将自动化，目前请手动复制提示词到本地 AI Agent 执行。
+    </div>
+    <div class="course-prompt-box">
+      <pre id="course-prompt-text"></pre>
+    </div>
+    <button class="btn-primary" id="btn-copy-prompt" data-i18n="btn.copy" onclick="copyPrompt()">📋 复制提示词</button>
+    <span class="copy-success hidden" id="copy-success" data-i18n="copy.success">✓ 已复制</span>
+  </div>
+</div>
+
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- Tab 1: 知识图谱 -->
+  <div class="tab-panel active" id="panel-graph">
+    <div class="graph-sidebar">
+      <div class="sidebar-header">
+        <span data-i18n="sidebar.title">知识图谱</span>
+        <div class="layer-indicator">
+          <div class="layer-dot active" id="ld-1" title="大类"></div>
+          <div class="layer-dot" id="ld-2" title="方向"></div>
+          <div class="layer-dot" id="ld-3" title="主题"></div>
+        </div>
+      </div>
+      <div class="view-toggle-bar">
+        <button class="view-toggle-btn" id="btn-path-view" data-i18n="view.path" onclick="setGraphView('path')">路径导览</button>
+        <button class="view-toggle-btn active" id="btn-global-view" data-i18n="view.global" onclick="setGraphView('global')">全局总览</button>
+        <button class="view-toggle-btn" id="btn-dir-view" data-i18n="view.dir" onclick="setGraphView('dir')">目录</button>
+        <button class="view-toggle-btn" id="btn-domain-view" data-i18n="view.domain" onclick="setGraphView('domain')" style="display:none">领域浏览</button>
+      </div>
+      <div class="graph-legend">
+        <div class="legend-group-title" data-i18n="legend.domains">知识域</div>
+        <div class="legend-item" data-area="foundations" onclick="filterByArea('foundations')"><div class="legend-dot" style="background:#58A6FF"></div><span data-i18n="area.foundation">基础理论</span></div>
+        <div class="legend-item" data-area="llm" onclick="filterByArea('llm')"><div class="legend-dot" style="background:#F85149"></div><span data-i18n="area.llm">大语言模型</span></div>
+        <div class="legend-item" data-area="application" onclick="filterByArea('application')"><div class="legend-dot" style="background:#BC8CFF"></div><span data-i18n="area.application">应用技术</span></div>
+        <div class="legend-item" data-area="engineering" onclick="filterByArea('engineering')"><div class="legend-dot" style="background:#4AC143"></div><span data-i18n="area.engineering">工程实践</span></div>
+        <div class="legend-item" data-area="safety" onclick="filterByArea('safety')"><div class="legend-dot" style="background:#8B949E"></div><span data-i18n="area.safety">安全与对齐</span></div>
+        <div class="legend-sep"></div>
+        <div class="legend-group-title" data-i18n="legend.status">主题掌握状态</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div><span data-i18n="status.mastered">已掌握</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div><span data-i18n="status.learning">学习中</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div><span data-i18n="status.needs_work">需要加强</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4A4A6A;border:1px solid #8B949E"></div><span data-i18n="status.unknown">未测评</span></div>
+        <div class="legend-ring-note" data-i18n="legend.ring">○ 外环弧度 = 聚合掌握进度</div>
+        <div class="legend-sep"></div>
+        <div class="legend-group-title" data-i18n="legend.size">节点大小</div>
+        <div class="legend-node-sizes">
+          <div class="legend-size-item">
+            <svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="#4A4A6A" stroke="#888" stroke-width="1.2"/></svg>
+            <span data-i18n="legend.size.dir">方向</span>
+          </div>
+          <div class="legend-size-item">
+            <svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#4A4A6A" stroke="#888" stroke-width="1"/></svg>
+            <span data-i18n="legend.size.topic">主题（大=重要）</span>
+          </div>
+        </div>
+        <div class="legend-sep"></div>
+        <div class="legend-group-title" data-i18n="legend.lines">连线含义</div>
+        <div class="legend-line-item">
+          <svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#58A6FF" stroke-width="1.2" stroke-dasharray="4,3"/></svg>
+          <span data-i18n="legend.line.prereq">前置依赖</span>
+        </div>
+        <div id="tag-filter-indicator" style="display:none;margin-top:8px;cursor:pointer;font-size:11px;background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);border-radius:12px;padding:3px 8px;color:var(--accent);text-align:center" onclick="filterByTag(null)"></div>
+      </div>
+
+      <!-- 导出分栏 -->
+      <div class="export-section">
+        <div class="export-title">导出</div>
+        <div class="export-buttons">
+          <button class="export-btn" onclick="Export.obsidian()" title="导出为 Obsidian Vault，含 wikilinks 和掌握状态">
+            <span class="export-btn-icon">📓</span> Obsidian Vault
+          </button>
+          <button class="export-btn" onclick="Export.anki()" title="导出 Quiz 为 Anki CSV 卡片组">
+            <span class="export-btn-icon">🃏</span> Anki 卡片
+          </button>
+          <button class="export-btn" onclick="Export.markdown()" title="导出纯 Markdown 文件，可导入 Notion/Logseq">
+            <span class="export-btn-icon">📄</span> Markdown
+          </button>
+        </div>
+      </div>
+
+      <div class="dir-panel hidden" id="dir-panel">
+        <div class="dir-tree" id="dir-tree"></div>
+      </div>
+
+      <div class="path-panel hidden" id="path-panel">
+        <div class="path-intent-bar">
+          <button class="path-intent-btn active" id="btn-apply-path" onclick="setActivePath('apply')" data-i18n="path.apply">会用</button>
+          <button class="path-intent-btn" id="btn-understand-path" onclick="setActivePath('understand')" data-i18n="path.understand">懂原理</button>
+        </div>
+        <div class="path-meta" id="path-meta"></div>
+        <div class="path-steps" id="path-steps"></div>
+        <div class="path-node-detail" id="path-node-detail"></div>
+      </div>
+
+      <div class="node-info-panel" id="node-info-panel">
+        <div class="node-info-empty" id="node-info-empty-msg">
+          <div class="onboard-title">AI / LLM / Agent 知识图谱</div>
+          <div class="onboard-ways">
+            <div class="onboard-way">🗺 <strong>浏览</strong>：单击节点查看详情，双击深入</div>
+            <div class="onboard-way">🔍 <strong>搜索</strong>：顶部搜索框，快捷键 ⌘K</div>
+            <div class="onboard-way">📝 <strong>测评</strong>：点击"测评"Tab 开始诊断</div>
+            <div class="onboard-way">📂 <strong>目录</strong>：切换"目录"视图完整浏览</div>
+          </div>
+          <div class="onboard-hint">单击节点后此处显示详情</div>
+        </div>
+      </div>
+    </div>
+    <div class="graph-canvas-wrap">
+      <div class="graph-breadcrumb" id="graph-breadcrumb">
+        <button class="crumb-back-global" id="crumb-back-global" onclick="setGraphView('global')" style="display:none" title="返回全局总览">← 全局</button>
+        <span class="crumb" id="crumb-root" onclick="resetToAreas()">全部大类</span>
+      </div>
+      <svg id="graph-svg"></svg>
+      <div class="graph-controls">
+        <button class="ctrl-btn" onclick="zoomIn()" title="放大">+</button>
+        <button class="ctrl-btn" onclick="zoomOut()" title="缩小">−</button>
+        <button class="ctrl-btn" onclick="resetZoom()" title="复位">⌂</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 测评 -->
+  <div class="tab-panel" id="panel-quiz">
+    <div id="quiz-home-view">
+      <div class="quiz-home">
+        <div class="quiz-home-header">
+          <h2 data-i18n="quiz.title">知识测评</h2>
+          <p data-i18n="quiz.subtitle">通过测评了解你的 AI 知识现状，定向提升薄弱领域</p>
+        </div>
+        <div class="diagnostic-card">
+          <h3 data-i18n="quiz.diagnostic.title">🔍 全局诊断</h3>
+          <p data-i18n="quiz.diagnostic.desc">30 道题（每方向 2 题），全面评估你在 15 个方向上的知识水平<br>完成后获得雷达图分析 + 个性化推荐</p>
+          <div class="diagnostic-notice" data-i18n-html="quiz.diagnostic.notice">
+            <strong>诊断不是考试。</strong>不会的题帮助系统找到你的学习起点，而不是评判你的水平。题目涵盖技术深度，部分偏难属正常现象。不确定可点击"跳过"继续。
+          </div>
+          <button class="btn-primary" id="btn-start-diagnostic" data-i18n="btn.start_diagnostic">开始全局诊断 →</button>
+        </div>
+        <div class="directions-section">
+          <h3 data-i18n="quiz.or_choose">── 或选择单个方向测评 ──</h3>
+          <div class="directions-grid" id="directions-grid">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-flow-view" class="hidden">
+      <div class="quiz-flow">
+        <div class="quiz-flow-header">
+          <div>
+            <button class="btn-secondary" id="btn-quit-quiz">← 退出</button>
+          </div>
+          <div class="quiz-flow-title">
+            <h3 id="quiz-flow-title">测评</h3>
+            <p id="quiz-flow-subtitle">回答完所有题目</p>
+          </div>
+        </div>
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="quiz-direction-label" id="quiz-direction-label"></div>
+        <div id="quiz-question-area">
+        </div>
+        <div class="quiz-nav">
+          <span class="quiz-counter" id="quiz-counter">0 / 0</span>
+          <div class="quiz-nav-btns">
+            <button class="btn-secondary btn-skip-question" id="btn-skip-question">跳过</button>
+            <button class="btn-primary" id="btn-next-question">下一题 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-result-view" class="hidden">
+      <div class="result-panel">
+        <div class="result-header">
+          <h2 data-i18n="result.title">📊 诊断结果</h2>
+          <div class="result-score-big" id="result-score-big">—</div>
+          <p id="result-score-label" data-i18n="result.accuracy">正确率</p>
+        </div>
+        <div class="result-layout">
+          <div class="radar-container">
+            <svg id="radar-svg" width="300" height="300"></svg>
+          </div>
+          <div class="scores-container">
+            <h4 data-i18n="result.direction_scores">各方向得分</h4>
+            <div id="direction-scores-list"></div>
+          </div>
+        </div>
+        <div class="weak-section" id="weak-section">
+          <h4 data-i18n="result.weak_title">⚠️ 建议重点学习方向</h4>
+          <div class="weak-tags" id="weak-tags"></div>
+          <p style="font-size:13px;color:var(--text-muted)" data-i18n="result.weak_hint">点击上方标签开始针对性测评</p>
+        </div>
+        <div class="next-steps-section" id="next-steps-section">
+          <h4 data-i18n="result.next_title">🚀 推荐下一步（从这里开始）</h4>
+          <div class="next-steps-list" id="next-steps-list"></div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-secondary" id="btn-redo-diagnostic" data-i18n="btn.redo">重新诊断</button>
+          <button class="btn-secondary" id="btn-view-graph-from-diagnostic" data-i18n="btn.view_graph">查看图谱 →</button>
+          <button class="btn-primary" id="btn-back-to-quiz-home" data-i18n="btn.back_home">返回测评首页</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="direction-result-view" class="hidden">
+      <div class="result-panel">
+        <div class="result-header">
+          <h2 id="dir-result-title">方向测评结果</h2>
+          <div class="result-score-big" id="dir-result-score">—</div>
+          <p id="dir-result-label">正确率</p>
+        </div>
+        <div class="scores-container" style="margin-bottom:16px;max-height:none;">
+          <h4 data-i18n="dir_result.topics">各主题掌握情况</h4>
+          <div id="dir-topic-results"></div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-secondary" id="btn-view-direction-graph" data-i18n="btn.view_dir_graph">查看此方向图谱 →</button>
+          <button class="btn-primary" id="btn-back-to-quiz-home-2" data-i18n="btn.back_home">返回测评首页</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tab 3: 进度看板 -->
+  <div class="tab-panel" id="panel-progress">
+    <div class="progress-page">
+      <div class="progress-summary" id="progress-summary">
+        <div class="stat-card stat-total"><div class="stat-value" id="stat-total">—</div><div class="stat-label" data-i18n="stat.total">总主题数</div></div>
+        <div class="stat-card stat-mastered"><div class="stat-value" id="stat-mastered">—</div><div class="stat-label" data-i18n="stat.mastered">已掌握</div></div>
+        <div class="stat-card stat-learning"><div class="stat-value" id="stat-learning">—</div><div class="stat-label" data-i18n="stat.learning">学习中</div></div>
+        <div class="stat-card stat-needs-work"><div class="stat-value" id="stat-needs-work">—</div><div class="stat-label" data-i18n="stat.needs_work">需要加强</div></div>
+        <div class="stat-card stat-unknown"><div class="stat-value" id="stat-unknown">—</div><div class="stat-label" data-i18n="stat.unknown">未测评</div></div>
+      </div>
+
+      <div class="progress-next-steps" id="progress-next-steps" style="display:none">
+        <h3 data-i18n="progress.next_title">🚀 下一步推荐</h3>
+        <div class="next-steps-chips" id="progress-next-chips"></div>
+      </div>
+
+      <div class="progress-heatmap-section" id="progress-heatmap-section">
+        <h3 data-i18n="progress.heatmap_title">知识体系总览</h3>
+        <div class="progress-heatmap" id="progress-heatmap"></div>
+      </div>
+
+      <div class="progress-layout">
+        <div class="progress-radar-box">
+          <h3 data-i18n="progress.radar_title">掌握度雷达图</h3>
+          <svg id="progress-radar-svg" width="340" height="300"></svg>
+        </div>
+        <div class="progress-areas-box">
+          <h3 data-i18n="progress.areas_title">大类进度</h3>
+          <div id="area-progress-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="static/js/app.js"></script>
+</body>
+</html>
