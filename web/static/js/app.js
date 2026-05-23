@@ -50,6 +50,8 @@ const State = {
   filterTag: null,           // 标签点击筛选：null = 全部显示
   searchHighlightIds: null,  // 搜索高亮：null = 无, Set<id> = 高亮集合
   focusedNode: null,         // 当前聚焦的节点，用于 zoom/pan 时跟随更新浮动按钮
+  globalLabelMode: localStorage.getItem('kg_graph_global_labels') || 'smart', // smart | expanded
+  directionLabelMode: localStorage.getItem('kg_graph_direction_labels') || 'smart', // smart | expanded
 
   _lastDiagnosticResult: null, // 最近一次诊断结果（供语言切换时重渲染）
   _lastDirectionResult: null,  // 最近一次方向测评结果
@@ -64,6 +66,14 @@ const State = {
 };
 
 window.State = State;
+
+document.addEventListener('click', e => {
+  const btn = e.target?.closest?.('[data-graph-scale-action]');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleGraphScaleAction(btn.dataset.graphScaleAction);
+});
 
 // ============================================================
 // 学习路径定义（按意图分组）
@@ -686,7 +696,7 @@ function clearGraph() {
   g.selectAll('*').remove();
 }
 
-function showGraphScaleHint({ title, body, tone = 'info' } = {}) {
+function showGraphScaleHint({ title, body, tone = 'info', actionLabel, action, meta } = {}) {
   const wrap = document.getElementById('graph-svg')?.parentElement;
   if (!wrap || !title) return;
   let hint = document.getElementById('graph-scale-hint');
@@ -697,8 +707,31 @@ function showGraphScaleHint({ title, body, tone = 'info' } = {}) {
     wrap.appendChild(hint);
   }
   hint.className = `graph-scale-hint graph-scale-hint-${tone}`;
-  hint.innerHTML = `<strong>${escHtml(title)}</strong><span>${escHtml(body || '')}</span>`;
+  const actionHtml = action && actionLabel
+    ? `<button type="button" class="graph-scale-action" data-graph-scale-action="${escHtml(action)}">${escHtml(actionLabel)}</button>`
+    : '';
+  const metaHtml = meta ? `<small>${escHtml(meta)}</small>` : '';
+  hint.innerHTML = `<strong>${escHtml(title)}</strong><span>${escHtml(body || '')}</span>${metaHtml}${actionHtml}`;
   hint.classList.add('show');
+}
+
+function handleGraphScaleAction(action) {
+  if (action === 'toggle-global-labels') {
+    State.globalLabelMode = State.globalLabelMode === 'expanded' ? 'smart' : 'expanded';
+    localStorage.setItem('kg_graph_global_labels', State.globalLabelMode);
+    renderGlobalView();
+    showToast(State.globalLabelMode === 'expanded'
+      ? (getLang() === 'en' ? 'More topic labels shown' : '已显示更多主题标签')
+      : (getLang() === 'en' ? 'Returned to overview labels' : '已恢复总览标签密度'), { tone: 'success', duration: 1500 });
+  }
+  if (action === 'toggle-direction-labels') {
+    State.directionLabelMode = State.directionLabelMode === 'expanded' ? 'smart' : 'expanded';
+    localStorage.setItem('kg_graph_direction_labels', State.directionLabelMode);
+    if (State.expandedDirection) expandDirection(State.expandedDirection);
+    showToast(State.directionLabelMode === 'expanded'
+      ? (getLang() === 'en' ? 'More labels shown in this direction' : '已显示更多本方向标签')
+      : (getLang() === 'en' ? 'Returned to core labels' : '已恢复核心标签显示'), { tone: 'success', duration: 1500 });
+  }
 }
 
 function hideGraphScaleHint() {
@@ -870,7 +903,10 @@ function expandDirection(dirId) {
     .filter(n => n.type === 'topic' && n.direction === dirId)
     .map(n => ({ ...n, x: W / 2 + (Math.random() - 0.5) * 250, y: H / 2 + (Math.random() - 0.5) * 250 }));
   const denseDirection = topicNodes.length > 18;
-  const topicLabelBudget = denseDirection ? 14 : Infinity;
+  const directionLabelsExpanded = State.directionLabelMode === 'expanded';
+  const topicLabelBudget = denseDirection
+    ? (directionLabelsExpanded ? Math.min(topicNodes.length, 36) : 14)
+    : Infinity;
   const labeledTopicIds = new Set(topicNodes
     .slice()
     .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
@@ -884,9 +920,20 @@ function expandDirection(dirId) {
   if (denseDirection) {
     showGraphScaleHint({
       title: getLang() === 'en' ? `${topicNodes.length} topics in this direction` : `本方向 ${topicNodes.length} 个主题`,
-      body: getLang() === 'en'
-        ? 'Showing core labels only. Use search or the directory for exact topics.'
-        : '仅显示核心主题标签；精确查找请用搜索或目录。',
+      body: directionLabelsExpanded
+        ? (getLang() === 'en'
+          ? 'Showing more labels for inspection. Search remains the fastest exact locator.'
+          : '已显示更多标签用于巡检；精确定位仍建议使用搜索。')
+        : (getLang() === 'en'
+          ? 'Showing core labels only. Use search or the directory for exact topics.'
+          : '仅显示核心主题标签；精确查找请用搜索或目录。'),
+      meta: getLang() === 'en'
+        ? 'Node size = importance · color = learning status'
+        : '节点大小=重要度 · 颜色=学习状态',
+      actionLabel: directionLabelsExpanded
+        ? (getLang() === 'en' ? 'Core labels' : '恢复核心')
+        : (getLang() === 'en' ? 'More labels' : '显示更多'),
+      action: 'toggle-direction-labels',
       tone: 'density'
     });
   }
@@ -914,7 +961,7 @@ function expandDirection(dirId) {
     .force('link', d3.forceLink(allLinks).id(d => d.id).distance(130).strength(0.7))
     .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : d.type === 'parent_area' ? 34 : TOPIC_R + 12))
+    .force('collision', d3.forceCollide(d => d.type === 'direction' ? DIR_R + 10 : d.type === 'parent_area' ? 34 : topicNodeRadius(d) + 12))
     .on('tick', ticked);
 
   // 链接
@@ -943,7 +990,6 @@ function expandDirection(dirId) {
   node.append('circle')
     .attr('r', d => topicNodeRadius(d))
     .attr('fill', d => {
-      if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'parent_area') return d.color || '#607D8B';
       if (d.type === 'direction') return d.color;
       const s = d.status || 'unknown';
@@ -1733,7 +1779,12 @@ function renderGlobalView() {
   const rawTopics = State.graphData.nodes.filter(n => n.type === 'topic');
   globalTopicCount = rawTopics.length;
   const denseGlobal = rawTopics.length > 60;
-  const globalLabelBudget = denseGlobal ? Math.min(22, Math.max(10, Math.round(rawTopics.length * 0.13))) : Infinity;
+  const globalLabelsExpanded = State.globalLabelMode === 'expanded';
+  const globalLabelBudget = denseGlobal
+    ? (globalLabelsExpanded
+      ? Math.min(80, Math.max(32, Math.round(rawTopics.length * 0.35)))
+      : Math.min(22, Math.max(10, Math.round(rawTopics.length * 0.13))))
+    : Infinity;
   const globalLabeledTopicIds = new Set(rawTopics
     .slice()
     .sort((a, b) => (b.importance || 3) - (a.importance || 3) || (a.difficulty || 3) - (b.difficulty || 3))
@@ -1743,9 +1794,20 @@ function renderGlobalView() {
   if (denseGlobal) {
     showGraphScaleHint({
       title: getLang() === 'en' ? `${rawTopics.length} topics · overview mode` : `${rawTopics.length} 个主题 · 总览模式`,
-      body: getLang() === 'en'
-        ? 'Global view shows structure and density. Click a direction to inspect topics.'
-        : '全局视图只承担结构与密度感知；点击方向查看具体主题。',
+      body: globalLabelsExpanded
+        ? (getLang() === 'en'
+          ? 'More labels are visible for scanning. Double-click a direction to enter details.'
+          : '已显示更多主题标签，便于巡检；双击方向可进入细节。')
+        : (getLang() === 'en'
+          ? 'Global view shows structure and density. Click a direction to inspect topics.'
+          : '全局视图只承担结构与密度感知；点击方向查看具体主题。'),
+      meta: getLang() === 'en'
+        ? 'Node size = importance · number = topics in direction'
+        : '节点大小=重要度 · 数字=方向下主题数',
+      actionLabel: globalLabelsExpanded
+        ? (getLang() === 'en' ? 'Overview labels' : '恢复总览')
+        : (getLang() === 'en' ? 'More labels' : '显示更多'),
+      action: 'toggle-global-labels',
       tone: 'density'
     });
   }

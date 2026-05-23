@@ -3318,6 +3318,7 @@ body.export-modal-open .top-export-popover {
 .graph-scale-hint.show {
   opacity: 1;
   transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 .graph-scale-hint strong,
 .graph-scale-hint span {
@@ -3357,4 +3358,39 @@ body.export-modal-open .top-export-popover {
   paint-order: stroke;
   stroke: color-mix(in srgb, var(--bg) 82%, transparent);
   stroke-width: 3px;
+}
+
+/* Density hint is now an interactive control, not only an explanation. */
+.graph-scale-hint small {
+  display: block;
+  margin-top: 7px;
+  color: color-mix(in srgb, var(--text-muted) 78%, var(--accent));
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.graph-scale-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 9px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform var(--motion-fast) var(--ease-out), background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+.graph-scale-action:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.graph-scale-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
 }
