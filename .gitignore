@@ -9,6 +9,9 @@ dist/
 vault_v1_backup/
 venv/
 web/data/state.json
+web/static/js/data.js
+exports/
 .claude/
 docs/feedback-assets/
 docs/*.md
+docs/.obsidian/

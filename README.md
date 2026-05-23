@@ -1,141 +1,186 @@
-# AI 知识图谱
+<p align="center">
+  <img src="docs/screenshot.png" alt="Super Alignment" width="800">
+</p>
 
-一个可本地运行的 AI / LLM / Agent 知识学习系统。通过交互式知识图谱、线性学习路径、诊断测评和进度追踪，帮助你系统掌握 AI 领域的核心知识体系。
+<p align="center">
+  <strong>一张 AI 学习地图 · 一个静态内容分发引擎</strong>
+</p>
 
-面向 **AI 爱好者、半吊子技术人员和非技术背景的学习者**——不需要机器学习背景，从"会用"开始，按需深入原理。
+<p align="center">
+  <a href="https://zominwang.github.io/super-alignment"><strong>🌐 在线体验</strong></a> ·
+  <a href="#快速开始"><strong>💻 本地运行</strong></a> ·
+  <a href="#内容导出"><strong>📦 导出到你自己的工具</strong></a>
+</p>
 
-**涵盖 5 大领域 · 15 个方向 · 74 个核心主题**
+---
 
-![知识图谱截图](docs/screenshot.png)
+## What is this?
 
-## 功能
+**Super Alignment** 帮助 AI 学习者回答三个问题：
 
-### 知识图谱
-- **全局总览**：三环放射布局，5 大类 + 15 方向 + 74 主题全部一屏可见，掌握状态实时着色
-- **领域浏览**：逐层展开（大类 → 方向 → 主题），力导向图布局
-- **路径导览**：按学习意图选择线性路径（详见下方）
+1. **我现在在哪？** — 打开一张覆盖 5 大领域、74 个主题的交互式知识地图
+2. **下一步学什么？** — 做 5 分钟诊断测评，系统告诉你薄弱方向并推荐下一步
+3. **怎么带走？** — 一键导出为 Obsidian Vault、Anki 卡片组或纯 Markdown，回到你熟悉的工具继续沉淀
 
-### 学习路径
-两条按**意图**划分的线性路径，每条 12 步，点击步骤直接跳转到图谱对应位置：
+它不是笔记工具，也不是课程平台。**这里是地图，你自己的笔记工具是目的地。**
 
-| 路径 | 适合人群 | 覆盖内容 |
-|---|---|---|
-| **会用** | 想把 AI 高效用起来 | LLM边界认知 → 提示工程 → RAG → Agent → MCP → Skill → 工作流自动化 |
-| **懂原理** | 想理解 AI 底层机制 | 线性代数 → 神经网络 → Transformer → 预训练 → SFT → RLHF → PEFT |
+<br>
 
-### 测评系统
-- **全局诊断**：30 题覆盖全部 15 个方向，生成雷达图 + 薄弱方向分析 + 推荐下一步
-- **方向测评**：针对单一方向深度测评（每方向 12 题），题目按难度排序
-- **后端验证**：答案不暴露给前端，服务端判分，防止直接作弊
+## ✨ 功能一览
 
-### 其他
-- **知识搜索**：模糊搜索名称、标签、描述，快速定位知识点（支持 MCP、Skill、RAG 等）
-- **进度看板**：五大领域掌握度概览，已掌握 / 学习中 / 需要加强 / 未测评 四状态统计
-- **日 / 夜主题**：顶部切换，偏好保存至本地
-- **图例系统**：节点大小、连线类型、掌握状态完整说明
+<table>
+<tr>
+<td width="50%">
 
-## 快速开始
+### 🗺 交互式知识图谱
+- 5 大领域 · 15 个方向 · 74 个主题，一屏全览
+- 节点大小 = 重要性，颜色 = 掌握度，连线 = 前置依赖
+- 四种视角：全局总览 / 领域浏览 / 目录 / 学习路径
 
-**环境要求**：Python 3.8+，无需其他外部服务
+### 📝 分级测评
+- **快速定位**（5 题 / 1 分钟）：入门即用
+- **完整诊断**（30 题 / 12 分钟）：雷达图 + 薄弱分析
+- **方向/主题测评**：定点练习，即时判分
+
+</td>
+<td width="50%">
+
+### 🎯 诚实推荐
+测评后才给出个性化推荐，不造假。每一条告诉你：
+- 为什么推荐这个主题
+- 前置知识是否已掌握
+- 难度级别
+
+### 📦 内容分发
+| 导出格式 | 适用工具 |
+|----------|----------|
+| Obsidian Vault | Obsidian |
+| Anki `.apkg` | Anki 间隔复习 |
+| Markdown Zip | Notion / Logseq |
+
+### 🔒 隐私优先
+纯静态应用，学习数据只存在你的浏览器里，不上传。
+
+</td>
+</tr>
+</table>
+
+<br>
+
+## 🚀 快速开始
+
+### 在线版（推荐）
+
+**零安装，点开即用：**
+
+👉 **[zominwang.github.io/super-alignment](https://zominwang.github.io/super-alignment/)**
+
+### 本地运行
+
+需要 Python 3.8+：
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/ZominWang/super-alignment.git
 cd super-alignment
-
-# 2. 启动（首次运行自动创建虚拟环境并安装依赖）
 bash run.sh
 ```
 
-浏览器访问 [http://localhost:5001](http://localhost:5001)
+打开 <http://localhost:5001>，首次运行会自动安装依赖并编译数据。
 
-如端口被占用，可使用：`FLASK_PORT=5011 bash run.sh`。
-
-> 首次启动会自动执行 `python3 -m venv venv` 和 `pip install -r requirements.txt`，无需手动操作。
-
-## 手动安装（可选）
+### 手动构建
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cd web && python app.py
+python build.py --no-validate
+cd web && python3 -m http.server 5001
 ```
 
-## 项目结构
+<br>
 
-```
-knowledge_graph/
-├── vault/                    # 知识库（Markdown 格式）
-│   ├── areas/      (5)       # 大类：基础理论、大语言模型、应用技术、工程实践、安全与对齐
-│   ├── directions/ (15)      # 方向：如 RAG、Agent、提示工程、MLOps…
-│   └── topics/    (74)       # 主题：每个文件含知识描述 + 选择题组
-├── web/
-│   ├── app.py                # Flask 后端 + API 路由
-│   ├── vault_parser.py       # 数据解析、测评逻辑、状态管理
-│   ├── data/                 # 运行时状态（state.json，不进 git）
-│   ├── static/css/style.css  # 全局样式 + 日/夜主题
-│   ├── static/js/app.js      # 图谱渲染、测评交互、路径导览
-│   └── templates/index.html  # 单页应用入口
-├── requirements.txt
-└── run.sh                    # 一键启动脚本
+## 📦 内容导出
+
+同一套内容，多种出口：
+
+```bash
+python build.py --export obsidian   # Obsidian Vault（含 wikilinks）
+python build.py --export anki       # Anki .apkg 卡片包
+python build.py --export anki-csv   # Anki CSV
+python build.py --export markdown   # 纯 Markdown
+python build.py --export all        # 全部导出
 ```
 
-## 知识结构
+产物在 `exports/` 目录。浏览器端也可一键下载（顶部"导出"菜单）。
 
-| 大类 | 方向 | 代表主题 |
-|---|---|---|
-| 基础理论 | 数学基础、机器学习、深度学习 | 线性代数、Transformer架构、监督学习 |
-| 大语言模型 | 模型架构、训练与优化、推理部署 | 注意力机制、SFT、RLHF、模型量化 |
-| 应用技术 | 提示工程、RAG、AI Agent | 上下文工程、RAG基础、MCP协议、Skill构建 |
-| 工程实践 | 开发框架、MLOps、测评与质量 | AI辅助编程、模型选型、LangChain、成本优化 |
-| 安全与对齐 | 对齐技术、AI安全、治理与伦理 | Constitutional AI、提示注入、数据隐私 |
+<br>
 
-## 扩展知识库
+## 📂 项目结构
 
-所有知识内容存储在 `vault/topics/`，每个主题是一个 Markdown 文件：
+```
+super-alignment/
+├── vault/                  ← 唯一内容源（Markdown）
+│   ├── areas/       (5)    领域
+│   ├── directions/  (15)   方向
+│   ├── topics/      (74)   主题 + Quiz
+│   └── paths/       (2)    学习路径
+├── web/                    ← 纯静态前端（零后端）
+│   ├── index.html           入口
+│   ├── static/js/app.js     图谱 · 测评 · 进度
+│   └── static/js/export.js  浏览器端导出
+├── build.py                ← 编译 & 导出脚本
+├── run.sh                  ← 一键启动
+└── exports/                ← 构建产出
+```
+
+<br>
+
+## 📝 贡献内容
+
+所有知识以 Markdown + YAML frontmatter 存在 `vault/topics/`：
 
 ```markdown
 ---
-id: your_topic_id
-name: 主题名称
-name_en: Topic Name
+id: rag_basics
+name: RAG 基础架构
 area: application
-direction: agent
-difficulty: 2          # 1-5，1最简单
-importance: 5          # 1-5，5最重要
-prerequisites: [agent_basics]
-tags: [agent, mcp]
+direction: rag
+difficulty: 2
+importance: 5
+prerequisites: [embeddings, basic_prompting]
+tags: [rag, retrieval, generation]
 ---
 
-知识点描述（1-2句话）...
+知识点正文…
 
 ## Quiz
 
 ### Q1
-**问题**: 题目内容？
+**问题**: RAG 的全称是？
 
-- A. 选项A
-- B. 正确选项  ✓
-- C. 选项C
-- D. 选项D
+- A. Random Access Generation
+- B. Retrieval-Augmented Generation  ✓
+- C. Recursive Attention Graph
+- D. Recurrent Auto-Generation
 
-**解析**: 选B的原因...
+**解析**: RAG = Retrieval-Augmented Generation，由 Lewis et al. (2020) 提出…
 ```
 
-按此格式在 `vault/topics/` 新增文件，重启服务即可自动加载。
+新增或修改后运行 `python build.py --no-validate` 即生效。
 
-## 技术栈
+<br>
 
-- **后端**：Python 3 + Flask 3，无数据库
-- **前端**：原生 JavaScript + D3.js v7，无框架
-- **数据**：Markdown + YAML frontmatter
-- **状态**：本地 JSON 文件，每台机器独立
+## 🛠 技术栈
 
-## 用户数据
+| 层 | 技术 |
+|----|------|
+| 内容 | Markdown + YAML frontmatter |
+| 构建 | Python 3 |
+| 前端 | 原生 JavaScript + D3.js v7 |
+| 运行时 | 纯静态 HTML/CSS/JS（无后端） |
+| 部署 | GitHub Pages / Netlify / 任意静态托管 |
 
-学习进度保存在 `web/data/state.json`（已加入 `.gitignore`），不会上传至 git，每台机器独立存储。
+<br>
 
-## License
+## 📄 License
 
-MIT
+MIT © [ZominWang](https://github.com/ZominWang)
