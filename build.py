@@ -389,6 +389,42 @@ def validate():
               + ('，…' if len(orphan_topics) > 5 else ''))
         warnings += 1
 
+    # ── 内容质量审计（仅警告，不阻断编译）──────────
+    short_desc = []
+    no_tags = []
+    for t in topics:
+        tid = t.get('id', '?')
+        body = (t.get('body', '') or '').strip()
+        desc_text = body.split('\n')[0] if body else ''
+        if len(desc_text) < 20:
+            short_desc.append(tid)
+        if not t.get('tags'):
+            no_tags.append(tid)
+
+    if short_desc:
+        print(f"⚠ {len(short_desc)} 个主题描述过短（<20 字）: "
+              f"{', '.join(short_desc[:5])}"
+              + ('，…' if len(short_desc) > 5 else ''))
+
+    if no_tags:
+        print(f"⚠ {len(no_tags)} 个主题缺少标签: "
+              f"{', '.join(no_tags[:5])}"
+              + ('，…' if len(no_tags) > 5 else ''))
+        warnings += 1
+
+    # 每个方向的难度/重要性分布统计
+    for d in directions:
+        did = d['id']
+        dt = [t for t in topics if t.get('direction') == did]
+        if not dt:
+            continue
+        diffs = [t.get('difficulty', 3) for t in dt]
+        avg_diff = sum(diffs) / len(diffs)
+        if avg_diff < 2 or avg_diff > 4:
+            print(f"⚠ Direction \"{did}\" 平均难度 {avg_diff:.1f}，"
+                  f"所有主题: {', '.join(str(x) for x in sorted(diffs))}")
+            warnings += 1
+
     # ── 学习路径校验 ────────────────────────────────
     for p in paths:
         pid = p.get('id', '?')
