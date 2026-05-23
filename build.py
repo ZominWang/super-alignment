@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'web'))
 from services.vault_loader import (
     load_areas, load_directions, load_topics,
     load_topic_by_id, load_direction_by_id, load_learning_paths,
+    AREAS_PATH, DIRS_PATH, TOPICS_PATH, PATHS_PATH,
 )
 from services.graph_builder import get_graph_data
 from services.progress import get_progress
@@ -692,6 +693,8 @@ if __name__ == '__main__':
                         help='额外导出: obsidian, anki, markdown, all')
     parser.add_argument('--serve', '-s', action='store_true',
                         help='编译后启动本地服务器')
+    parser.add_argument('--watch', '-w', action='store_true',
+                        help='监听 vault/ 变动，自动重新编译')
     parser.add_argument('--port', '-p', type=int, default=5001,
                         help='服务器端口（默认 5001）')
     args = parser.parse_args()
@@ -709,12 +712,67 @@ if __name__ == '__main__':
             sys.exit(1)
         print()
 
+    if args.serve or args.watch:
+        import threading
+        import time
+
     d = build()
+
     if args.export:
         print()
         targets = args.export if args.export else ['all']
         for t in targets:
             run_export(d, t)
+
+    if args.watch:
+        watch_dirs = [AREAS_PATH, DIRS_PATH, TOPICS_PATH, PATHS_PATH]
+        print(f"\n👁  监听 vault/ 变动，自动重新编译...")
+        print("  (修改 Markdown 或 YAML 文件后自动触发)\n")
+
+        last_mtimes = {}
+        for dpath in watch_dirs:
+            if os.path.isdir(dpath):
+                for fname in os.listdir(dpath):
+                    fpath = os.path.join(dpath, fname)
+                    if os.path.isfile(fpath):
+                        last_mtimes[fpath] = os.path.getmtime(fpath)
+
+        while True:
+            time.sleep(1.5)
+            changed = False
+            for dpath in watch_dirs:
+                if not os.path.isdir(dpath):
+                    continue
+                try:
+                    for fname in os.listdir(dpath):
+                        fpath = os.path.join(dpath, fname)
+                        if not os.path.isfile(fpath):
+                            continue
+                        cur_mtime = os.path.getmtime(fpath)
+                        if fpath not in last_mtimes or last_mtimes[fpath] != cur_mtime:
+                            changed = True
+                            last_mtimes[fpath] = cur_mtime
+                    # Check for deleted files
+                    gone = [fp for fp in last_mtimes if os.path.dirname(fp) == dpath and not os.path.exists(fp)]
+                    if gone:
+                        changed = True
+                        for fp in gone:
+                            del last_mtimes[fp]
+                except OSError:
+                    pass
+
+            if changed:
+                print(f"  [{time.strftime('%H:%M:%S')}] 检测到变动，重新编译...")
+                try:
+                    d = build()
+                    if args.export:
+                        for t in (args.export if args.export else ['all']):
+                            run_export(d, t)
+                except SystemExit:
+                    pass  # validation error during rebuild shouldn't kill watch
+                except Exception as e:
+                    print(f"  ✗ 编译失败: {e}")
+                print(f"  [{time.strftime('%H:%M:%S')}] 继续监听...\n")
 
     if args.serve:
         web_dir = os.path.join(ROOT, 'web')
