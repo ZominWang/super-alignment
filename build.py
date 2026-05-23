@@ -574,8 +574,139 @@ def export_obsidian(data):
     return vault
 
 
+def export_anki_apkg(data):
+    """生成 Anki .apkg 卡片包（需要 genanki 库）"""
+    try:
+        import genanki
+    except ImportError:
+        print("✗ 需要 genanki 库: pip install genanki")
+        return None
+
+    quizzes = data['quizzes']
+    topics = data['topics']
+    directions = data['directions']
+    areas = data['areas']
+
+    area_map = {a['id']: a for a in areas}
+    dir_map = {d['id']: d for d in directions}
+
+    # ── 定义笔记模型 ──────────────────────────────────
+    model_id = random.randint(1000000000, 9999999999)
+    model = genanki.Model(
+        model_id,
+        'AI知识图谱-Quiz',
+        fields=[
+            {'name': 'Question'},
+            {'name': 'Options'},      # HTML: A. xxx<br>B. xxx ...
+            {'name': 'Answer'},       # 正确选项字母 + 文字
+            {'name': 'Explanation'},
+            {'name': 'Direction'},    # 方向名称
+            {'name': 'Tags'},         # 标签（空格分隔）
+        ],
+        templates=[{
+            'name': 'Quiz Card',
+            'qfmt': (
+                '<div class="question" style="font-size:16px;margin-bottom:14px;line-height:1.6">'
+                '{{Question}}'
+                '</div>'
+                '<div class="options" style="font-size:14px;color:#666;line-height:1.8">'
+                '{{Options}}'
+                '</div>'
+            ),
+            'afmt': (
+                '<div class="answer-label" style="color:#3fb950;font-weight:bold;margin-bottom:8px">'
+                '✓ {{Answer}}'
+                '</div>'
+                '<div class="options" style="font-size:14px;color:#666;line-height:1.8">'
+                '{{Options}}'
+                '</div>'
+                '{{#Explanation}}'
+                '<hr style="margin:12px 0">'
+                '<div class="explanation" style="font-size:13px;color:#888;line-height:1.6">'
+                '{{Explanation}}'
+                '</div>'
+                '{{/Explanation}}'
+            ),
+        }],
+        css=(
+            '.card { font-family: -apple-system, "Helvetica Neue", sans-serif; '
+            'padding: 20px; max-width: 600px; margin: 0 auto; }'
+            '.question { color: #e6e6e6; }'
+            '.options { color: #aaa; }'
+            '.answer-label { color: #3fb950; }'
+            '.explanation { color: #888; }'
+            '.night_mode .card { background: #1a1a2e; }'
+        ),
+    )
+
+    # ── 生成卡片 ──────────────────────────────────────
+    main_deck_id = random.randint(1000000000, 9999999999)
+    main_deck = genanki.Deck(main_deck_id, 'AI知识图谱')
+
+    dir_decks = {}  # direction_id -> Deck
+    card_count = 0
+
+    for t in topics:
+        tid = t['id']
+        qs = quizzes.get(tid, [])
+        if not qs:
+            continue
+
+        did = t.get('direction', '')
+        dir_name = dir_map.get(did, {}).get('name', did)
+        area_name = area_map.get(t.get('area', ''), {}).get('name', '')
+
+        # 为每个方向建子牌组
+        if did not in dir_decks:
+            deck_id = random.randint(1000000000, 9999999999)
+            dir_decks[did] = genanki.Deck(deck_id, f'AI知识图谱::{dir_name}')
+
+        for q in qs:
+            options_html = '<br>'.join(
+                f'{o.get("letter", "")}. {o.get("text", "")}'
+                for o in q.get('options', [])
+            )
+            correct_idx = q.get('correct_index', -1)
+            if 0 <= correct_idx < len(q.get('options', [])):
+                opt = q['options'][correct_idx]
+                answer = f'{opt.get("letter", "")}. {opt.get("text", "")}'
+            else:
+                answer = '?'
+
+            tag_list = [area_name, dir_name] + t.get('tags', [])
+            # Anki 标签不允许空格，替换为下划线
+            tag_list = [tg.replace(' ', '_') for tg in tag_list if tg]
+
+            note = genanki.Note(
+                model=model,
+                fields=[
+                    q.get('question', ''),
+                    options_html,
+                    answer,
+                    q.get('explanation', ''),
+                    dir_name,
+                    ' '.join(tag_list),
+                ],
+                tags=tag_list,
+            )
+            dir_decks[did].add_note(note)
+            card_count += 1
+
+    # 打包：主牌组包含所有子牌组
+    pkg = genanki.Package(main_deck)
+    for deck in dir_decks.values():
+        pkg.decks.append(deck)
+
+    apkg_path = os.path.join(EXPORT_DIR, 'AI知识图谱.apkg')
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+    pkg.write_to_file(apkg_path)
+
+    print(f"✓ Anki .apkg ({card_count} 张卡片, {len(dir_decks)} 个子牌组) → {apkg_path}")
+    return apkg_path
+
+
 def export_anki_csv(data):
-    """生成 Anki 可导入的 CSV 文件"""
+    """生成 Anki CSV 文件（兼容旧版 Anki 或手动导入）"""
     quizzes = data['quizzes']
     topics = data['topics']
     csv_path = os.path.join(EXPORT_DIR, 'anki-deck.csv')
@@ -584,8 +715,7 @@ def export_anki_csv(data):
     rows = []
     for t in topics:
         tid = t['id']
-        qs = quizzes.get(tid, [])
-        for q in qs:
+        for q in quizzes.get(tid, []):
             front = q.get('question', '')
             options_html = '<br>'.join(
                 f"{o.get('letter', '')}. {o.get('text', '')}" for o in q.get('options', [])
@@ -593,18 +723,16 @@ def export_anki_csv(data):
             correct_idx = q.get('correct_index', -1)
             correct_letter = q['options'][correct_idx].get('letter', '?') if 0 <= correct_idx < len(q.get('options', [])) else '?'
             back = f'答案: {correct_letter}<br>{options_html}<br><br>{q.get("explanation", "")}'
-            tags = f'{t.get("area", "")} {t.get("direction", "")} {" ".join(t.get("tags", []))}'
+            tags = ' '.join([t.get('area', ''), t.get('direction', ''), *t.get('tags', [])])
 
             def csv_escape(s):
                 return '"' + s.replace('"', '""') + '"'
             rows.append(f'{csv_escape(front)};{csv_escape(back)};{csv_escape(tags)}')
 
     with open(csv_path, 'w', encoding='utf-8-sig') as f:
-        f.write('# Front;Back;Tags\n')
-        f.write('\n'.join(rows) + '\n')
+        f.write('# Front;Back;Tags\n' + '\n'.join(rows) + '\n')
 
-    card_count = len(rows)
-    print(f"✓ Anki CSV ({card_count} 张卡片) → {csv_path}")
+    print(f"✓ Anki CSV ({len(rows)} 张卡片) → {csv_path}")
     return csv_path
 
 
@@ -661,7 +789,8 @@ def export_markdown(data):
 
 EXPORTERS = {
     'obsidian': export_obsidian,
-    'anki': lambda d: export_anki_csv(d),
+    'anki': lambda d: export_anki_apkg(d),
+    'anki-csv': lambda d: export_anki_csv(d),
     'markdown': export_markdown,
 }
 
@@ -689,7 +818,7 @@ if __name__ == '__main__':
     parser.add_argument('--no-validate', action='store_true',
                         help='跳过编译前校验')
     parser.add_argument('--export', '-e', nargs='*',
-                        choices=['obsidian', 'anki', 'markdown', 'all'],
+                        choices=['obsidian', 'anki', 'anki-csv', 'markdown', 'all'],
                         help='额外导出: obsidian, anki, markdown, all')
     parser.add_argument('--serve', '-s', action='store_true',
                         help='编译后启动本地服务器')
