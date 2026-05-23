@@ -684,7 +684,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='编译 vault/ 内容为静态数据文件')
     parser.add_argument('--validate', '-v', action='store_true',
-                        help='校验 vault 文件完整性（不编译）')
+                        help='仅校验 vault 文件完整性（不编译）')
+    parser.add_argument('--no-validate', action='store_true',
+                        help='跳过编译前校验')
     parser.add_argument('--export', '-e', nargs='*',
                         choices=['obsidian', 'anki', 'markdown', 'all'],
                         help='额外导出: obsidian, anki, markdown, all')
@@ -697,6 +699,15 @@ if __name__ == '__main__':
     if args.validate:
         errors, _ = validate()
         sys.exit(0 if errors == 0 else 1)
+
+    if not args.no_validate:
+        errors, warnings = validate()
+        if errors > 0:
+            print(f"\n⚠ 发现 {errors} 个错误，{warnings} 个警告。")
+            print("  如有疑问，用 --no-validate 跳过校验继续编译。")
+        if errors > 0:
+            sys.exit(1)
+        print()
 
     d = build()
     if args.export:
