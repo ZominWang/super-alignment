@@ -42,16 +42,17 @@ interface Area {
 
 // ── Direction ──
 interface Direction {
-  id:          string;   // "rag"
-  name:        string;   // "RAG检索增强"
-  name_en:     string;
-  type:        "direction";
-  level:       2;
-  area:        string;   // 所属 Area.id
-  color:       string;
-  description: string;
-  topic_count: number;   // 自动计算
-  body:        string;
+  id:              string;
+  name:            string;
+  name_en:         string;
+  type:            "direction";
+  level:           2;
+  area:            string;
+  color:           string;
+  description:     string;
+  topic_count:     number;
+  total_questions: number;   // 该方向所有 Quiz 题目总数
+  body:            string;
 }
 
 // ── TopicMeta（用于图谱/列表/搜索） ──
@@ -161,7 +162,7 @@ interface SearchItem {
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/graph` | GET | 图谱数据（合并 localStorage 状态） |
-| `/api/directions?area_id=X` | GET | 方向列表 |
+| `/api/directions?area_id=X` | GET | 方向列表（含 total_questions 字段） |
 | `/api/areas` | GET | 大类列表 |
 | `/api/learning-paths` | GET | 学习路径 |
 | `/api/progress` | GET | 进度统计（合并状态） |

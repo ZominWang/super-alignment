@@ -241,6 +241,14 @@ def build():
             'tokens': list(tokens),
         })
 
+    # ── 每个方向的题目总数（供前端方向卡展示） ─────────────────
+    for d in directions:
+        did = d['id']
+        d['total_questions'] = sum(
+            len(quizzes.get(t['id'], []))
+            for t in topics if t.get('direction') == did
+        )
+
     # ── 组装输出 ────────────────────────────────────────────────
     data = {
         'areas': areas,

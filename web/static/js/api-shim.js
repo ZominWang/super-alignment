@@ -144,7 +144,8 @@
       return {
         id: d.id, name: d.name, name_en: d.name_en,
         area: d.area, color: d.color,
-        description: d.description, topic_count: d.topic_count
+        description: d.description, topic_count: d.topic_count,
+        total_questions: d.total_questions || 0
       };
     }));
   }
