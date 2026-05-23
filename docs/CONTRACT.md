@@ -192,12 +192,23 @@ interface SearchItem {
 
 ## 导出功能
 
-`export.js` 提供三个导出函数，可在 UI 中调用：
+### 浏览器端导出（export.js，UI 中调用）
 
 ```javascript
 Export.obsidian()   // 下载 Obsidian Vault zip（含 wikilinks + 状态）
-Export.anki()       // 下载 Anki CSV 卡片组
+Export.anki()       // 下载 Anki CSV 卡片组（浏览器兼容格式）
 Export.markdown()   // 下载纯 Markdown zip
 ```
 
+### 构建时导出（build.py，服务端分发）
+
+```bash
+python build.py --export obsidian   # Obsidian Vault 目录
+python build.py --export anki       # Anki .apkg 卡片包（222 张，15 个子牌组）
+python build.py --export anki-csv   # Anki CSV（兼容旧版）
+python build.py --export markdown   # 纯 Markdown 目录
+python build.py --export all        # 全量导出
+```
+
 依赖 `JSZip`（CDN: cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js）
+构建时导出还需 `genanki>=0.13`。

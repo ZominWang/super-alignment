@@ -1,6 +1,14 @@
 """
-AI 知识图谱系统 v2 - Flask 后端
-三级知识结构：area -> direction -> topic
+⚠️ LEGACY — 此文件已不再使用
+══════════════════════════════════════
+AI 知识图谱系统 v2 - Flask 后端已被移除。
+当前项目是纯静态架构，使用 build.py 编译 vault/ 内容，
+然后 python -m http.server 或任意 HTTP 服务器运行。
+
+详见 build.py 和 docs/CONTRACT.md。
+══════════════════════════════════════
+
+以下为原始代码，仅供历史参考。
 """
 import os
 import re
